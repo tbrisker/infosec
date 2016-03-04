@@ -4,18 +4,18 @@
 #include <linux/netfilter.h>
 #include <linux/netfilter_ipv4.h>
 
-static struct nf_hook_ops forward;
-static struct nf_hook_ops incoming;
-static struct nf_hook_ops outgoing;
+#define NUM_HOOKS 3
+
+static struct nf_hook_ops hooks[NUM_HOOKS];
 
 /* utility macros for allowing or denying with logging */
 #define ALLOW ({\
-            printk(KERN_INFO "*** packet passed ***");\
+            printk(KERN_INFO "*** packet passed ***\n");\
             return NF_ACCEPT;\
         })
 
 #define DENY ({\
-            printk(KERN_INFO "*** packet blocked ***");\
+            printk(KERN_INFO "*** packet blocked ***\n");\
             return NF_DROP;\
         })
 
@@ -25,11 +25,12 @@ static unsigned int firewall(unsigned int hooknum,
                         const struct net_device *in,
                         const struct net_device *out,
                         int (*okfn)(struct sk_buff *)){
+    printk("hooknum: %d, in: %s, out: %s\n", hooknum, in ? in->name : "none", out ? out->name : "none");
     if (NF_INET_FORWARD == hooknum)
         DENY;
     else if (NF_INET_LOCAL_OUT == hooknum || NF_INET_LOCAL_IN == hooknum)
         ALLOW;
-    return NF_ACCEPT; /* quietly accept at other points */
+    return NF_ACCEPT; /* quietly accept at other points, should they be hooked */
 }
 
 /* This function initializes the hook_ops struct, sets the hooknum and hooks it to the firewall */
@@ -43,46 +44,23 @@ static void hook_ops_default(struct nf_hook_ops *hook_ops, unsigned int hooknum)
 }
 
 static int __init hw1_init_function(void) {
-    int ret;
     printk(KERN_INFO "Initializing hooks...\n");
 
-    hook_ops_default(&forward, NF_INET_FORWARD);
-    hook_ops_default(&incoming, NF_INET_LOCAL_IN);
-    hook_ops_default(&outgoing, NF_INET_LOCAL_OUT);
+    hook_ops_default(&hooks[0], NF_INET_FORWARD);
+    hook_ops_default(&hooks[1], NF_INET_LOCAL_IN);
+    hook_ops_default(&hooks[2], NF_INET_LOCAL_OUT);
 
     printk(KERN_INFO "Registering hooks...\n");
 
-    if ((ret = nf_register_hook(&forward)) != 0) {
-        printk(KERN_ERR "Error registring hook forward, aborting: %d.\n", ret);
-        return ret;
-    }
-
-    if ((ret = nf_register_hook(&incoming)) != 0) {
-        nf_unregister_hook(&forward);
-        printk(KERN_ERR "Error registring hook incoming, aborting: %d.\n", ret);
-        return ret;
-    }
-
-    if ((ret = nf_register_hook(&outgoing)) != 0) {
-        nf_unregister_hook(&forward);
-        nf_unregister_hook(&incoming);
-        printk(KERN_ERR "Error registring hook outgoing, aborting: %d.\n", ret);
-        return ret;
-    }
-    return 0;
+    return nf_register_hooks(hooks, NUM_HOOKS);
 }
 
 static void __exit hw1_exit_function(void) {
     printk(KERN_INFO "Removing hooks...\n");
-    nf_unregister_hook(&forward);
-    nf_unregister_hook(&incoming);
-    nf_unregister_hook(&outgoing);
+    nf_unregister_hooks(hooks, 3);
 }
 
 module_init(hw1_init_function);
 module_exit(hw1_exit_function);
 
 MODULE_LICENSE("GPL");
-
-#undef ALLOW
-#undef DENY
