@@ -25,7 +25,9 @@ static unsigned int firewall(unsigned int hooknum,
                         const struct net_device *in,
                         const struct net_device *out,
                         int (*okfn)(struct sk_buff *)){
+#ifdef HW1_DEBUG
     printk("hooknum: %d, in: %s, out: %s\n", hooknum, in ? in->name : "none", out ? out->name : "none");
+#endif
     if (NF_INET_FORWARD == hooknum)
         DENY;
     else if (NF_INET_LOCAL_OUT == hooknum || NF_INET_LOCAL_IN == hooknum)
@@ -40,23 +42,30 @@ static void hook_ops_default(struct nf_hook_ops *hook_ops, unsigned int hooknum)
     hook_ops->hooknum = hooknum;
     hook_ops->priority = NF_IP_PRI_FIRST;
     hook_ops->hook = &firewall;
+#ifdef HW1_DEBUG
     printk(KERN_INFO "hook %d initialized\n", hooknum);
+#endif
 }
 
 static int __init hw1_init_function(void) {
+#ifdef HW1_DEBUG
     printk(KERN_INFO "Initializing hooks...\n");
+#endif
 
     hook_ops_default(&hooks[0], NF_INET_FORWARD);
     hook_ops_default(&hooks[1], NF_INET_LOCAL_IN);
     hook_ops_default(&hooks[2], NF_INET_LOCAL_OUT);
 
+#ifdef HW1_DEBUG
     printk(KERN_INFO "Registering hooks...\n");
-
+#endif
     return nf_register_hooks(hooks, NUM_HOOKS);
 }
 
 static void __exit hw1_exit_function(void) {
+#ifdef HW1_DEBUG
     printk(KERN_INFO "Removing hooks...\n");
+#endif
     nf_unregister_hooks(hooks, 3);
 }
 
