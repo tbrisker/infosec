@@ -8,17 +8,6 @@
 
 static struct nf_hook_ops hooks[NUM_HOOKS];
 
-/* utility macros for allowing or denying with logging */
-#define ALLOW ({\
-            printk(KERN_INFO "*** packet passed ***\n");\
-            return NF_ACCEPT;\
-        })
-
-#define DENY ({\
-            printk(KERN_INFO "*** packet blocked ***\n");\
-            return NF_DROP;\
-        })
-
 /* the main firewall logic lies here */
 static unsigned int firewall(unsigned int hooknum,
                         struct sk_buff *skb,
@@ -28,10 +17,14 @@ static unsigned int firewall(unsigned int hooknum,
 #ifdef HW1_DEBUG
     printk("hooknum: %d, in: %s, out: %s\n", hooknum, in ? in->name : "none", out ? out->name : "none");
 #endif
-    if (NF_INET_FORWARD == hooknum)
-        DENY;
-    else if (NF_INET_LOCAL_OUT == hooknum || NF_INET_LOCAL_IN == hooknum)
-        ALLOW;
+    if (NF_INET_FORWARD == hooknum){
+        printk(KERN_INFO "*** packet blocked ***\n");
+        return NF_DROP;
+    };
+    else if (NF_INET_LOCAL_OUT == hooknum || NF_INET_LOCAL_IN == hooknum) {
+        printk(KERN_INFO "*** packet passed ***\n");
+        return NF_ACCEPT;
+    }
     return NF_ACCEPT; /* quietly accept at other points, should they be hooked */
 }
 
