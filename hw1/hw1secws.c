@@ -3,6 +3,8 @@
 #include <linux/netdevice.h>
 #include <linux/netfilter.h>
 #include <linux/netfilter_ipv4.h>
+MODULE_LICENSE("GPL");
+MODULE_AUTHOR("Tomer Brisker");
 
 #define NUM_HOOKS 3
 
@@ -68,4 +70,3 @@ static void __exit hw1_exit_function(void) {
 module_init(hw1_init_function);
 module_exit(hw1_exit_function);
 
-MODULE_LICENSE("GPL");
