@@ -15,17 +15,19 @@ static unsigned int firewall(unsigned int hooknum,
                         const struct net_device *out,
                         int (*okfn)(struct sk_buff *)){
 #ifdef DEBUG
-    printk("hooknum: %d, in: %s, out: %s\n", hooknum, in ? in->name : "none", out ? out->name : "none");
+    printk(KERN_INFO "firewall triggered, hooknum: %d, in: %s, out: %s\n",
+            hooknum, in ? in->name : "none", out ? out->name : "none");
 #endif
-    if (NF_INET_FORWARD == hooknum){
-        printk(KERN_INFO "*** packet blocked ***\n");
-        return NF_DROP;
-    };
-    else if (NF_INET_LOCAL_OUT == hooknum || NF_INET_LOCAL_IN == hooknum) {
-        printk(KERN_INFO "*** packet passed ***\n");
-        return NF_ACCEPT;
+    switch (hooknum){
+        case NF_INET_FORWARD: /* Deny all forwarded packets */
+            printk(KERN_INFO "*** packet blocked ***\n");
+            return NF_DROP;
+        case NF_INET_LOCAL_OUT: /* Allow packets to or from our host */
+        case NF_INET_LOCAL_IN:
+            printk(KERN_INFO "*** packet passed ***\n"); /* and fall through to accept */
+        default: /* Other hook points will accept without logging - just in case someone hooks into them */
+            return NF_ACCEPT;
     }
-    return NF_ACCEPT; /* quietly accept at other points, should they be hooked */
 }
 
 /* This function initializes the hook_ops struct, sets the hooknum and hooks it to the firewall */
@@ -44,7 +46,7 @@ static int __init hw1_init_function(void) {
 #ifdef DEBUG
     printk(KERN_INFO "Initializing hooks...\n");
 #endif
-
+    /* initialize the hook option structs for the hook points defined by the exercise */
     hook_ops_default(&hooks[0], NF_INET_FORWARD);
     hook_ops_default(&hooks[1], NF_INET_LOCAL_IN);
     hook_ops_default(&hooks[2], NF_INET_LOCAL_OUT);
@@ -52,6 +54,7 @@ static int __init hw1_init_function(void) {
 #ifdef DEBUG
     printk(KERN_INFO "Registering hooks...\n");
 #endif
+    /* nf_register_hooks will register all the hooks and automatically unregister all of them if one fails */
     return nf_register_hooks(hooks, NUM_HOOKS);
 }
 
@@ -59,7 +62,7 @@ static void __exit hw1_exit_function(void) {
 #ifdef DEBUG
     printk(KERN_INFO "Removing hooks...\n");
 #endif
-    nf_unregister_hooks(hooks, 3);
+    nf_unregister_hooks(hooks, NUM_HOOKS);
 }
 
 module_init(hw1_init_function);
