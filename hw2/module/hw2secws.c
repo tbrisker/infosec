@@ -116,43 +116,43 @@ static int init_sysfs(void)
     //create char device
     major_number = register_chrdev(0, "Sysfs_Device", &fops);\
     if (major_number < 0)
-        return -1;
+        return cleanup_sysfs(0);
 
     //create sysfs class
     sysfs_class = class_create(THIS_MODULE, "Sysfs_class");
-    if (IS_ERR(sysfs_class))
-    {
-        unregister_chrdev(major_number, "Sysfs_Device");
-        return -1;
+    if (IS_ERR(sysfs_class)) {
+        return cleanup_sysfs(1);
     }
 
     //create sysfs device
     sysfs_device = device_create(sysfs_class, NULL, MKDEV(major_number, 0), NULL, "sysfs_class" "_" "sysfs_Device");
-    if (IS_ERR(sysfs_device))
-    {
-        class_destroy(sysfs_class);
-        unregister_chrdev(major_number, "Sysfs_Device");
-        return -1;
+    if (IS_ERR(sysfs_device)) {
+        return cleanup_sysfs(2);
     }
 
     //create sysfs file attributes
-    if (device_create_file(sysfs_device, (const struct device_attribute *)&dev_attr_sysfs_att.attr))
-    {
-        device_destroy(sysfs_class, MKDEV(major_number, 0));
-        class_destroy(sysfs_class);
-        unregister_chrdev(major_number, "Sysfs_Device");
-        return -1;
+    if (device_create_file(sysfs_device, (const struct device_attribute *)&dev_attr_sysfs_att.attr)) {
+        return cleanup_sysfs(3);
     }
 
     return 0;
 }
 
-static void cleanup_sysfs(void)
-{
-    device_remove_file(sysfs_device, (const struct device_attribute *)&dev_attr_sysfs_att.attr);
-    device_destroy(sysfs_class, MKDEV(major_number, 0));
-    class_destroy(sysfs_class);
-    unregister_chrdev(major_number, "Sysfs_Device");
+static int cleanup_sysfs(int step){
+#ifdef DEBUG
+    printk(KERN_DEBUG "Cleaning up sysfs, step %d\n", step);
+#endif
+    switch (step){
+        case 4:
+            device_remove_file(sysfs_device, (const struct device_attribute *)&dev_attr_sysfs_att.attr);
+        case 3:
+            device_destroy(sysfs_class, MKDEV(major_number, 0));
+        case 2:
+            class_destroy(sysfs_class);
+        case 1:
+            unregister_chrdev(major_number, "Sysfs_Device");
+    }
+    return -1;
 }
 
 /**********/
@@ -171,7 +171,7 @@ static int __init hw2_init_function(void) {
 }
 
 static void __exit hw2_exit_function(void) {
-    cleanup_sysfs();
+    cleanup_sysfs(4);
     cleanup_firewall();
 }
 
