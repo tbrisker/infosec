@@ -59,7 +59,7 @@ static void hook_ops_init(struct nf_hook_ops *hook_ops, unsigned int hooknum){
 #endif
 }
 
-static int init_firewall(){
+static int init_firewall(void){
 #ifdef DEBUG
     printk(KERN_DEBUG "Initializing hooks...\n");
 #endif
@@ -75,7 +75,7 @@ static int init_firewall(){
     return nf_register_hooks(hooks, NUM_HOOKS);
 }
 
-static void cleanup_firewall(){
+static void cleanup_firewall(void){
 #ifdef DEBUG
     printk(KERN_DEBUG "Removing hooks...\n");
 #endif
@@ -86,92 +86,129 @@ static void cleanup_firewall(){
 /*  Sysfs  */
 /***********/
 
+
+#define CHARDEV_NAME "stats"
+#define CLASS_NAME "FW_interface"
 static int major_number;
 static struct class* sysfs_class = NULL;
 static struct device* sysfs_device = NULL;
-
-static unsigned int sysfs_int = 0;
 
 static struct file_operations fops = {
     .owner = THIS_MODULE
 };
 
-ssize_t display(struct device *dev, struct device_attribute *attr, char *buf)   //sysfs show implementation
+static ssize_t display(struct device *dev, struct device_attribute *attr, char *buf)   //sysfs show implementation
 {
-    return scnprintf(buf, PAGE_SIZE, "%u\n", sysfs_int);
+#ifdef DEBUG
+    printk(KERN_DEBUG "displaying %s\n", attr->attr.name);
+#endif
+    switch (attr->attr.name[0]){
+        case 't': //total
+            return scnprintf(buf, PAGE_SIZE, "%u\n", p_total);
+        case 'b': //blocked
+            return scnprintf(buf, PAGE_SIZE, "%u\n", p_block);
+        case 'p': //passed
+            return scnprintf(buf, PAGE_SIZE, "%u\n", p_pass);
+    }
+    return -1;
 }
 
-ssize_t modify(struct device *dev, struct device_attribute *attr, const char *buf, size_t count)    //sysfs store implementation
-{
+static ssize_t reset(struct device *dev, struct device_attribute *attr, const char *buf, size_t count){
     int temp;
-    if (sscanf(buf, "%u", &temp) == 1)
-        sysfs_int = temp;
+    if (sscanf(buf, "%u", &temp) == 1 && temp == 0){
+#ifdef DEBUG
+    printk(KERN_DEBUG "Reseting counters.\n");
+#endif
+        p_total = 0;
+        p_block = 0;
+        p_pass  = 0;
+    }
     return count;
 }
 
-static DEVICE_ATTR(sysfs_att, S_IRWXO , display, modify);
-
-static int init_sysfs(void)
-{
-    //create char device
-    major_number = register_chrdev(0, "Sysfs_Device", &fops);\
-    if (major_number < 0)
-        return cleanup_sysfs(0);
-
-    //create sysfs class
-    sysfs_class = class_create(THIS_MODULE, "Sysfs_class");
-    if (IS_ERR(sysfs_class)) {
-        return cleanup_sysfs(1);
-    }
-
-    //create sysfs device
-    sysfs_device = device_create(sysfs_class, NULL, MKDEV(major_number, 0), NULL, "sysfs_class" "_" "sysfs_Device");
-    if (IS_ERR(sysfs_device)) {
-        return cleanup_sysfs(2);
-    }
-
-    //create sysfs file attributes
-    if (device_create_file(sysfs_device, (const struct device_attribute *)&dev_attr_sysfs_att.attr)) {
-        return cleanup_sysfs(3);
-    }
-
-    return 0;
-}
+static struct device_attribute stats_attributes[5]= {
+        __ATTR(total, S_IRUSR, display, NULL),
+        __ATTR(blocked, S_IRUSR, display, NULL),
+        __ATTR(passed, S_IRUSR, display, NULL),
+        __ATTR(reset, S_IWUSR, NULL, reset),
+        __ATTR_NULL
+    };
 
 static int cleanup_sysfs(int step){
 #ifdef DEBUG
     printk(KERN_DEBUG "Cleaning up sysfs, step %d\n", step);
 #endif
     switch (step){
-        case 4:
-            device_remove_file(sysfs_device, (const struct device_attribute *)&dev_attr_sysfs_att.attr);
         case 3:
             device_destroy(sysfs_class, MKDEV(major_number, 0));
         case 2:
             class_destroy(sysfs_class);
         case 1:
-            unregister_chrdev(major_number, "Sysfs_Device");
+            unregister_chrdev(major_number, CHARDEV_NAME);
     }
     return -1;
 }
+
+static int init_sysfs(void){
+#ifdef DEBUG
+    printk(KERN_DEBUG "Initializing sysfs device...\n");
+#endif
+    //create char device
+    major_number = register_chrdev(0, CHARDEV_NAME, &fops);
+    if (major_number < 0)
+        return major_number;
+#ifdef DEBUG
+    printk(KERN_DEBUG "Registered chardev %u\n", major_number);
+#endif
+
+    //create sysfs class
+    sysfs_class = class_create(THIS_MODULE, CLASS_NAME);
+    if (IS_ERR(sysfs_class)) {
+        return cleanup_sysfs(1);
+    }
+#ifdef DEBUG
+    printk(KERN_DEBUG "created class %s\n", sysfs_class->name);
+#endif
+
+    //set the default dev attrs so we don't have to manually add and clean them up
+    sysfs_class->dev_attrs = stats_attributes;
+
+    //create sysfs device
+    sysfs_device = device_create(sysfs_class, NULL, MKDEV(major_number, 0), NULL, CHARDEV_NAME);
+    if (IS_ERR(sysfs_device)) {
+        return cleanup_sysfs(2);
+    }
+#ifdef DEBUG
+    printk(KERN_DEBUG "created device %s\n", dev_name(sysfs_device));
+#endif
+
+    return 0;
+}
+
 
 /**********/
 /*  CORE  */
 /**********/
 static int __init hw2_init_function(void) {
-    int err = init_firewall();
-    if (err)
+    int err;
+    if ((err = init_firewall())){
         return err;
-    err = init_sysfs();
-    if (err){
+    }
+#ifdef DEBUG
+    printk(KERN_DEBUG "Firewall initialized successfully!\n");
+#endif
+    if ((err = init_sysfs())){
         cleanup_firewall();
         return err;
     }
+#ifdef DEBUG
+    printk(KERN_DEBUG "sysfs interface initialized successfully!\n");
+#endif
     return 0;
 }
 
 static void __exit hw2_exit_function(void) {
-    cleanup_sysfs(4);
+    cleanup_sysfs(3);
     cleanup_firewall();
 }
 
