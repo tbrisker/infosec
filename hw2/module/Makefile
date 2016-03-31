@@ -1,3 +1,5 @@
+hw2secws-objs := sysfs.o firewall.o
+
 obj-m += hw2secws.o
 
 all:
