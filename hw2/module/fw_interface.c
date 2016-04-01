@@ -1,19 +1,13 @@
-#include <linux/module.h>
-#include <linux/kernel.h>
-#include <linux/fs.h>
-#include <linux/device.h>
-#include "firewall.h"
+
+#include "fw_interface.h"
 
 MODULE_LICENSE("GPL");
 MODULE_AUTHOR("Tomer Brisker");
 
-/***********/
-/*  Sysfs  */
-/***********/
+/******************************/
+/*  Sysfs Firewall Interface  */
+/******************************/
 
-
-#define CHARDEV_NAME "stats"
-#define CLASS_NAME "FW_interface"
 static int major_number;
 static struct class* sysfs_class = NULL;
 static struct device* sysfs_device = NULL;
@@ -22,8 +16,7 @@ static struct file_operations fops = {
     .owner = THIS_MODULE
 };
 
-static ssize_t display(struct device *dev, struct device_attribute *attr, char *buf)   //sysfs show implementation
-{
+static ssize_t display(struct device *dev, struct device_attribute *attr, char *buf){
 #ifdef DEBUG
     printk(KERN_DEBUG "displaying %s\n", attr->attr.name);
 #endif
@@ -50,7 +43,7 @@ static struct device_attribute stats_attributes[5]= {
         __ATTR_NULL
     };
 
-extern int cleanup_sysfs(int step){
+int cleanup_sysfs(int step){
 #ifdef DEBUG
     printk(KERN_DEBUG "Cleaning up sysfs, step %d\n", step);
 #endif
@@ -65,7 +58,7 @@ extern int cleanup_sysfs(int step){
     return -1;
 }
 
-extern int init_sysfs(void){
+int init_sysfs(void){
 #ifdef DEBUG
     printk(KERN_DEBUG "Initializing sysfs device...\n");
 #endif
