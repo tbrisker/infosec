@@ -1,17 +1,11 @@
-#include <linux/module.h>
-#include <linux/kernel.h>
-#include <linux/netdevice.h>
-#include <linux/netfilter.h>
-#include <linux/netfilter_ipv4.h>
+#include "firewall.h"
 
 MODULE_LICENSE("GPL");
 MODULE_AUTHOR("Tomer Brisker");
 
-
 /************/
 /* Firewall */
 /************/
-#define NUM_HOOKS 3
 
 /* Array to hold our hook definitions so we can easily register and unregister them */
 static struct nf_hook_ops hooks[NUM_HOOKS];
@@ -19,12 +13,11 @@ static struct nf_hook_ops hooks[NUM_HOOKS];
 /* Packet counters */
 static unsigned int p_total, p_block, p_pass;
 
-
-extern void reset_counters(void){
+void reset_counters(void){
     p_total = p_block = p_pass = 0;
 }
 
-extern unsigned int get_counter(char id){
+unsigned int get_counter(char id){
     switch (id){
         case 't': //total
             return p_total;
@@ -73,7 +66,7 @@ static void hook_ops_init(struct nf_hook_ops *hook_ops, unsigned int hooknum){
 #endif
 }
 
-extern int init_firewall(void){
+int init_firewall(void){
     reset_counters();
 #ifdef DEBUG
     printk(KERN_DEBUG "Initializing hooks...\n");
@@ -90,7 +83,7 @@ extern int init_firewall(void){
     return nf_register_hooks(hooks, NUM_HOOKS);
 }
 
-extern void cleanup_firewall(void){
+void cleanup_firewall(void){
 #ifdef DEBUG
     printk(KERN_DEBUG "Removing hooks...\n");
 #endif
