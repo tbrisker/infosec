@@ -1,7 +1,6 @@
 #include "firewall.h"
 #include "fw_interface.h"
 
-
 MODULE_LICENSE("GPL");
 MODULE_AUTHOR("Tomer Brisker");
 
@@ -10,7 +9,6 @@ MODULE_AUTHOR("Tomer Brisker");
 /**********/
 static int __init hw2_init_function(void) {
     int err;
-    printk(KERN_WARNING "initializing\n");
     if ((err = init_firewall())){
         printk(KERN_WARNING "Firewall init failed with error %d!\n", err);
         return err;
@@ -19,7 +17,7 @@ static int __init hw2_init_function(void) {
     printk(KERN_DEBUG "Firewall initialized successfully!\n");
 #endif
     if ((err = init_sysfs())){
-        printk(KERN_WARNING "sysfs interfact init failed with error %d!\n", err);
+        printk(KERN_WARNING "sysfs interface init failed with error %d!\n", err);
         cleanup_firewall();
         return err;
     }
