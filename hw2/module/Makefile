@@ -1,5 +1,5 @@
-obj-m := hw2secws.o
-hw2secws-objs := core.o fw_interface.o firewall.o
+obj-m := fw.o
+fw-objs := hw2secws.o fw_interface.o firewall.o
 
 all:
 	make -C /lib/modules/$(shell uname -r)/build M=$(PWD) modules
