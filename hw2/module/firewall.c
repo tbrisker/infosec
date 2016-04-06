@@ -3,9 +3,9 @@
 MODULE_LICENSE("GPL");
 MODULE_AUTHOR("Tomer Brisker");
 
-/************/
-/* Firewall */
-/************/
+/************
+ * Firewall *
+ ************/
 
 /* Array to hold our hook definitions so we can easily register and unregister them */
 static struct nf_hook_ops hooks[NUM_HOOKS];
@@ -17,7 +17,7 @@ void reset_counters(void){
     p_total = p_block = p_pass = 0;
 }
 
-unsigned int get_counter(char id){
+int get_counter(char id){
     switch (id){
         case 't': //total
             return p_total;
