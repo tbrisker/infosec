@@ -10,7 +10,11 @@
 #include <linux/ip.h>
 #include <linux/tcp.h>
 #include <linux/udp.h>
-
+//include all our modules
+#include "fw_filter.h"
+#include "fw_stats.h"
+#include "fw_log.h"
+#include "fw_rules.h"
 
 // the protocols we will work with
 typedef enum {
@@ -29,12 +33,13 @@ typedef enum {
 	REASON_XMAS_PACKET           = -4,
 	REASON_ILLEGAL_VALUE         = -6,
 } reason_t;
-	
+
 
 // auxiliary strings, for your convenience
 #define DEVICE_NAME_RULES			"rules"
 #define DEVICE_NAME_LOG				"log"
 #define DEVICE_NAME_CONN_TAB		"conn_tab"
+#define DEVICE_NAME_STATS			"stats"
 #define CLASS_NAME					"fw"
 #define LOOPBACK_NET_DEVICE_NAME	"lo"
 #define IN_NET_DEVICE_NAME			"eth1"
@@ -74,9 +79,9 @@ typedef struct {
 								// (the field is redundant - easier to print)
 	__be32	dst_ip;
 	__be32	dst_prefix_mask; 	// as above
-	__u8    dst_prefix_size; 	// as above	
-	__be16	src_port; 			// number of port or 0 for any or port 1023 for any port number > 1023  
-	__be16	dst_port; 			// number of port or 0 for any or port 1023 for any port number > 1023 
+	__u8    dst_prefix_size; 	// as above
+	__be16	src_port; 			// number of port or 0 for any or port 1023 for any port number > 1023
+	__be16	dst_port; 			// number of port or 0 for any or port 1023 for any port number > 1023
 	__u8	protocol; 			// values from: prot_t
 	ack_t	ack; 				// values from: ack_t
 	__u8	action;   			// valid values: NF_ACCEPT, NF_DROP

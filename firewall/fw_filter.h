@@ -1,10 +1,5 @@
-#ifndef FIREWALL_H
-#define FIREWALL_H
-#include <linux/module.h>
-#include <linux/kernel.h>
-#include <linux/netdevice.h>
-#include <linux/netfilter.h>
-#include <linux/netfilter_ipv4.h>
+#ifndef FW_FILTER_H
+#define FW_FILTER_H
 
 #define NUM_HOOKS 3
 

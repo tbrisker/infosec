@@ -1,5 +1,4 @@
-#include "firewall.h"
-#include "fw_interface.h"
+#include "fw.h"
 
 MODULE_LICENSE("GPL");
 MODULE_AUTHOR("Tomer Brisker");
@@ -8,7 +7,7 @@ MODULE_AUTHOR("Tomer Brisker");
  * Firewall module core *
  ************************/
 
-static int __init hw2_init_function(void) {
+static int __init firewall_init_function(void) {
     int err;
     if ((err = init_firewall())){
         printk(KERN_ERR "Firewall init failed with error %d!\n", err);
@@ -28,10 +27,10 @@ static int __init hw2_init_function(void) {
     return 0;
 }
 
-static void __exit hw2_exit_function(void) {
+static void __exit firewall_exit_function(void) {
     cleanup_sysfs(3);
     cleanup_firewall();
 }
 
-module_init(hw2_init_function);
-module_exit(hw2_exit_function);
+module_init(firewall_init_function);
+module_exit(firewall_exit_function);
