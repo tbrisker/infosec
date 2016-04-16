@@ -1,13 +1,5 @@
-#ifndef FW_INTERFACE_H
-#define FW_INTERFACE_H
-#include <linux/module.h>
-#include <linux/kernel.h>
-#include <linux/fs.h>
-#include <linux/device.h>
-#include "fw_filter.h" // so we can talk to the firewall for counters
-
-#define CHARDEV_NAME "stats"
-#define CLASS_NAME "FW_interface"
+#ifndef FW_STATS_H
+#define FW_STATS_H
 
 /***********************************************
  * Firewall stats interface - "public" methods *

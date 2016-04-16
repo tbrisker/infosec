@@ -1,10 +1,10 @@
-#include "fw_stats.h"
+#include "fw.h"
 
 MODULE_LICENSE("GPL");
 MODULE_AUTHOR("Tomer Brisker");
 
 /******************************/
-/*  Firewall sysfs interface  */
+/*  Firewall stats interface  */
 /******************************/
 
 /* variables to hold various needed structs and identifiers. */
@@ -60,7 +60,7 @@ int init_sysfs(void){
     printk(KERN_DEBUG "Initializing sysfs device...\n");
 #endif
     //create char device
-    major_number = register_chrdev(0, CHARDEV_NAME, &fops);
+    major_number = register_chrdev(0, DEVICE_NAME_STATS, &fops);
     if (major_number < 0){
         printk(KERN_ERR "Error registering chrdev");
         return major_number;
@@ -84,7 +84,7 @@ int init_sysfs(void){
     sysfs_class->dev_attrs = stats_attributes;
 
     //create sysfs device
-    sysfs_device = device_create(sysfs_class, NULL, MKDEV(major_number, 0), NULL, CHARDEV_NAME);
+    sysfs_device = device_create(sysfs_class, NULL, MKDEV(major_number, 0), NULL, DEVICE_NAME_STATS);
     if (IS_ERR(sysfs_device)) {
         printk(KERN_ERR "Error creating device");
         cleanup_sysfs(2);
@@ -106,6 +106,6 @@ void cleanup_sysfs(int step){
         case 2:
             class_destroy(sysfs_class);
         case 1:
-            unregister_chrdev(major_number, CHARDEV_NAME);
+            unregister_chrdev(major_number, DEVICE_NAME_STATS);
     }
 }
