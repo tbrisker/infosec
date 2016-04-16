@@ -1,4 +1,4 @@
-#include "firewall.h"
+#include "fw_filter.h"
 
 MODULE_LICENSE("GPL");
 MODULE_AUTHOR("Tomer Brisker");

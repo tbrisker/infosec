@@ -8,9 +8,9 @@
 
 #define NUM_HOOKS 3
 
-/*****************************
- * Firewall "public" methods *
- *****************************/
+/************************************
+ * Firewall filter "public" methods *
+ ************************************/
 
 /* Resets all the packet counters to 0 */
 void reset_counters(void);

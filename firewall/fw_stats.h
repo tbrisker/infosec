@@ -4,13 +4,13 @@
 #include <linux/kernel.h>
 #include <linux/fs.h>
 #include <linux/device.h>
-#include "firewall.h" // so we can talk to the firewall for counters
+#include "fw_filter.h" // so we can talk to the firewall for counters
 
 #define CHARDEV_NAME "stats"
 #define CLASS_NAME "FW_interface"
 
 /***********************************************
- * Firewall sysfs interface - "public" methods *
+ * Firewall stats interface - "public" methods *
  ***********************************************/
 
 /* creates the sysfs device and its attributes.

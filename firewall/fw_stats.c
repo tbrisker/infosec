@@ -1,4 +1,4 @@
-#include "fw_interface.h"
+#include "fw_stats.h"
 
 MODULE_LICENSE("GPL");
 MODULE_AUTHOR("Tomer Brisker");
