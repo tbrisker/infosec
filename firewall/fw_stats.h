@@ -1,6 +1,9 @@
 #ifndef FW_STATS_H
 #define FW_STATS_H
 
+#define STATS_CLASS       "FW_interface"
+#define DEVICE_NAME_STATS "stats"
+
 /***********************************************
  * Firewall stats interface - "public" methods *
  ***********************************************/
