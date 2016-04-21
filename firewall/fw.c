@@ -9,16 +9,16 @@ MODULE_AUTHOR("Tomer Brisker");
 
 static int __init firewall_init_function(void) {
     int err;
-    if ((err = init_firewall())){
-        printk(KERN_ERR "Firewall init failed with error %d!\n", err);
+    if ((err = init_filter())){
+        printk(KERN_ERR "filter init failed with error %d!\n", err);
         return err;
     }
 #ifdef DEBUG
-    printk(KERN_DEBUG "Firewall initialized successfully!\n");
+    printk(KERN_DEBUG "filter initialized successfully!\n");
 #endif
     if ((err = init_stats())){
         printk(KERN_ERR "stats interface init failed with error %d!\n", err);
-        cleanup_firewall(); //we already initialized the fw, so we need to clean it up
+        cleanup_filter(); //we already initialized the fw, so we need to clean it up
         return err;
     }
 #ifdef DEBUG
@@ -29,7 +29,7 @@ static int __init firewall_init_function(void) {
 
 static void __exit firewall_exit_function(void) {
     cleanup_stats(3);
-    cleanup_firewall();
+    cleanup_filter();
 }
 
 module_init(firewall_init_function);
