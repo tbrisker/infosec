@@ -18,11 +18,11 @@ void reset_counters(void);
  */
 int get_counter(char);
 
-/* initialize the firewall - reset counters, set up and register hooks.
+/* initialize the filter - reset counters, set up and register hooks.
  * returns 0 on success, negative error otherwise
  */
-int init_firewall(void);
+int init_filter(void);
 
-/* cleanup the firewall - unregister hooks */
-void cleanup_firewall(void);
+/* cleanup the filter - unregister hooks */
+void cleanup_filter(void);
 #endif
