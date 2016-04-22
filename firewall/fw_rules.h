@@ -1,6 +1,8 @@
 #ifndef FW_RULES_H
 #define FW_RULES_H
 
+#define DEVICE_NAME_RULES           "rules"
+
 #define MAX_RULES       (50)
 
 // the protocols we will work with

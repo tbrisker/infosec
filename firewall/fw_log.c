@@ -50,7 +50,7 @@ static void log_row(log_row_t * new_row){
 /* Note: the row is allocated memory, make sure to delete it when done */
 int add_row(unsigned char protocol, unsigned char action, unsigned char hooknum,
             __be32 src_ip, __be32 dst_ip, __be16 src_port, __be16 dst_port,
-            reason_t reason)
+            reason_t reason){
     log_row_t * row = kmalloc(sizof(log_row_t), GFP_KERNEL);
     if (!row){
         printk(KERN_ERR "Error allocating memory for log row.\n");
@@ -70,7 +70,7 @@ int add_row(unsigned char protocol, unsigned char action, unsigned char hooknum,
 }
 
 static void clear_log(void){
-    log_row_t * cur, * tmp;
+    log_row_t *cur, *tmp;
     list_for_each_entry_safe(cur, tmp, log_list, list){
         list_del(cur->list);
         kfree(cur);
@@ -79,22 +79,69 @@ static void clear_log(void){
 
 /* log char device functions and handlers */
 static int major_number;
-static struct class* sysfs_class = NULL;
-static struct device* sysfs_device = NULL;
+static struct class *sysfs_class = NULL;
+static struct device *sysfs_device = NULL;
+static struct list_head *cur_row;
 
-static unsigned int sysfs_int = 0;
-static unsigned int sysfs_int_2 = 1;
+int my_open(struct inode *_inode, struct file *_file){
+    cur_row = log_list.next;
+    return 0;
+}
 
-ssize_t read_log(struct file *filp, char *buff, size_t length, loff_t *offp)
-{
-    if (!log_size)
+ssize_t read_log(struct file *filp, char *buff, size_t length, loff_t *offp){
+    if (!log_size || cur_row == log_list) //the log is empty or we reached the end
         return 0;
-    if (copy_to_user(buff, str, str_len))  // Send the data to the user through 'copy_to_user'
+    if (length < ROW_SIZE){ // length must be at least ROWSIZE for read to work, we don't send partial rows.
+        return -ENOMEM;
+    }
+    if (copy_to_user(buff, list_entry(cur_row, log_row_t, list), ROW_SIZE)  // Send the data to the user through 'copy_to_user'
         return -EFAULT;
-    return strlen(str);
+    }
+    cur_row = cur_row->next; //advance to the next row for the next read
+    return ROW_SIZE;
 }
 
 static struct file_operations fops = {
     .owner = THIS_MODULE,
+    .open = open_log,
     .read = read_log
 };
+
+void cleanup_log_device(int step){
+#ifdef DEBUG
+    printk(KERN_DEBUG "Cleaning up log device, step %d\n", step);
+#endif
+    switch (step){
+        case 3:
+            device_destroy(sysfs_class, MKDEV(major_number, 0));
+        case 2:
+            class_destroy(sysfs_class);
+        case 1:
+            unregister_chrdev(major_number, DEVICE_NAME_LOG);
+    }
+}
+
+int init_log_device(void) {
+    major_number = register_chrdev(0, DEVICE_NAME_LOG, &fops);
+
+    if (major_number < 0) {
+        return -1;
+    }
+
+    sysfs_class = class_create(THIS_MODULE, CLASS_NAME);
+
+    if (IS_ERR(sysfs_class)) {
+        unregister_chrdev(major_number, DEVICE_NAME_LOG);
+        return -1;
+    }
+
+    sysfs_device = device_create(sysfs_class, NULL, MKDEV(major_number, 0), NULL, "sysfs_class" "_" "sysfs_Device");
+
+    if (IS_ERR(sysfs_device)) {
+        class_destroy(sysfs_class);
+        unregister_chrdev(major_number, "Sysfs_Device");
+        return -1;
+    }
+
+    return 0;
+}
