@@ -9,8 +9,8 @@ MODULE_AUTHOR("Tomer Brisker");
 
 /* variables to hold various needed structs and identifiers. */
 static int major_number;
-static struct class* stats_class = NULL;
-static struct device* stats_device = NULL;
+static struct class* sysfs_class = NULL;
+static struct device* sysfs_device = NULL;
 static struct file_operations fops = {
     .owner = THIS_MODULE
 };
@@ -47,7 +47,7 @@ static ssize_t reset(struct device *dev, struct device_attribute *attr, const ch
  * This takes advantage of the device_add_attributes() "private" function that
  * is called indirectly during device_create().
  */
-static struct device_attribute stats_attributes[5]= {
+static struct device_attribute sysfs_attributes[5]= {
         __ATTR(total, S_IRUSR, display, NULL),
         __ATTR(blocked, S_IRUSR, display, NULL),
         __ATTR(passed, S_IRUSR, display, NULL),
@@ -70,28 +70,28 @@ int init_stats(void){
 #endif
 
     //create stats class
-    stats_class = class_create(THIS_MODULE, STATS_CLASS);
-    if (IS_ERR(stats_class)) {
+    sysfs_class = class_create(THIS_MODULE, CLASS_NAME);
+    if (IS_ERR(sysfs_class)) {
         printk(KERN_ERR "Error creating class");
         cleanup_stats(1);
         return -1;
     }
 #ifdef DEBUG
-    printk(KERN_DEBUG "created class %s\n", stats_class->name);
+    printk(KERN_DEBUG "created class %s\n", sysfs_class->name);
 #endif
 
     //set the default dev attrs so we don't have to manually add and clean them up
-    stats_class->dev_attrs = stats_attributes;
+    sysfs_class->dev_attrs = sysfs_attributes;
 
     //create stats device
-    stats_device = device_create(stats_class, NULL, MKDEV(major_number, 0), NULL, DEVICE_NAME_STATS);
-    if (IS_ERR(stats_device)) {
+    sysfs_device = device_create(sysfs_class, NULL, MKDEV(major_number, 0), NULL, DEVICE_NAME_STATS);
+    if (IS_ERR(sysfs_device)) {
         printk(KERN_ERR "Error creating device");
         cleanup_stats(2);
         return -2;
     }
 #ifdef DEBUG
-    printk(KERN_DEBUG "created device %s\n", dev_name(stats_device));
+    printk(KERN_DEBUG "created device %s\n", dev_name(sysfs_device));
 #endif
     return 0;
 }
@@ -102,9 +102,9 @@ void cleanup_stats(int step){
 #endif
     switch (step){
         case 3:
-            device_destroy(stats_class, MKDEV(major_number, 0));
+            device_destroy(sysfs_class, MKDEV(major_number, 0));
         case 2:
-            class_destroy(stats_class);
+            class_destroy(sysfs_class);
         case 1:
             unregister_chrdev(major_number, DEVICE_NAME_STATS);
     }

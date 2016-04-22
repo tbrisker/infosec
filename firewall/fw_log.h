@@ -1,6 +1,8 @@
 #ifndef FW_LOG_H
 #define FW_LOG_H
 
+#define DEVICE_NAME_LOG             "log"
+
 // various reasons to be registered in each log entry
 typedef enum {
     REASON_FW_INACTIVE           = -1,
@@ -23,7 +25,7 @@ typedef struct {
     unsigned int     count;          // counts this line's hits
     struct list_head list;           // the log is a linked list of rows
 } log_row_t;
-
+#define ROW_SIZE (sizeof(log_row_t));
 /*********************************************
  * Firewall log interface - "public" methods *
  *********************************************/
