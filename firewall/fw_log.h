@@ -30,5 +30,7 @@ typedef struct {
  * Firewall log interface - "public" methods *
  *********************************************/
 
+int init_log(void);
+void cleanup_log(void);
 
 #endif

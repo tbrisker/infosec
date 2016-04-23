@@ -126,10 +126,7 @@ static struct device_attribute log_attrs[]= {
         __ATTR_NULL // stopping condition for loop in device_add_attributes()
     };
 
-int init_log_device(void) {
-#ifdef DEBUG
-    printk(KERN_DEBUG "Cleaning up log device, step %d\n", step);
-#endif
+int init_log(void) {
     log_size = 0;
     major_number = safe_device_init(DEVICE_NAME_LOG, &fops, dev, log_attrs);
     // Since we use safe_device_init, in case of failure all cleanup will be
@@ -137,6 +134,9 @@ int init_log_device(void) {
     return (major_number < 0) ? major_number : 0;
 }
 
-void cleanup_log_device(int step){
+void cleanup_log(void){
+#ifdef DEBUG
+    printk(KERN_DEBUG "Cleaning up log device\n");
+#endif
     safe_device_cleanup(major_number, 3, dev, log_attrs);
 }
