@@ -48,7 +48,7 @@ static struct device_attribute stats_attrs[]= {
         __ATTR_NULL // stopping condition for loop in device_add_attributes()
     };
 
-int init_stats(){
+int init_stats(void){
 #ifdef DEBUG
     printk(KERN_DEBUG "Initializing stats device...\n");
 #endif
@@ -58,7 +58,7 @@ int init_stats(){
     return (major_number < 0) ? major_number : 0;
 }
 
-void cleanup_stats(){
+void cleanup_stats(void){
 #ifdef DEBUG
     printk(KERN_DEBUG "Cleaning up stats, step %d\n", step);
 #endif
