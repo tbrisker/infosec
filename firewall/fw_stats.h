@@ -1,7 +1,6 @@
 #ifndef FW_STATS_H
 #define FW_STATS_H
 
-#define STATS_CLASS       "FW_interface"
 #define DEVICE_NAME_STATS "stats"
 
 /***********************************************
@@ -18,6 +17,6 @@ int init_sysfs(void);
  * This is so we can reuse the code in init_sysfs in case it fails in the
  * process of creating the device. Passing 3 cleans everything.
  */
-void cleanup_sysfs(int);
+void cleanup_sysfs(void);
 
 #endif
