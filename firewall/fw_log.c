@@ -83,14 +83,15 @@ static int major_number;
 static struct device *dev = NULL;
 static struct list_head *cur_row;
 
-int open_log(struct inode *_inode, struct file *_file){
+static int open_log(struct inode *_inode, struct file *_file){
     cur_row = log_list.next;
     return 0;
 }
 
-ssize_t read_log(struct file *filp, char *buff, size_t length, loff_t *offp){
-    if (!log_size || cur_row == &log_list) //the log is empty or we reached the end
+static ssize_t read_log(struct file *filp, char *buff, size_t length, loff_t *offp){
+    if (!log_size || cur_row == &log_list){ //the log is empty or we reached the end
         return 0;
+    }
     if (length < ROW_SIZE){ // length must be at least ROWSIZE for read to work, we don't send partial rows.
         return -ENOMEM;
     }

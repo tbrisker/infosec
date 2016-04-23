@@ -19,4 +19,6 @@ int init_stats(void);
  */
 void cleanup_stats(void);
 
+extern unsigned int p_total, p_block, p_pass;
+
 #endif

@@ -3,6 +3,26 @@
 MODULE_LICENSE("GPL");
 MODULE_AUTHOR("Tomer Brisker");
 
+
+/* Packet counters */
+unsigned int p_total, p_block, p_pass;
+
+static void reset_counters(void){
+    p_total = p_block = p_pass = 0;
+}
+
+static int get_counter(char id){
+    switch (id){
+        case 't': //total
+            return p_total;
+        case 'b': //blocked
+            return p_block;
+        case 'p': //passed
+            return p_pass;
+    }
+    return -1;
+}
+
 /******************************/
 /*  Firewall stats interface  */
 /******************************/
@@ -51,6 +71,7 @@ int init_stats(void){
 #ifdef DEBUG
     printk(KERN_DEBUG "Initializing stats device...\n");
 #endif
+    reset_counters();
     major_number = safe_device_init(DEVICE_NAME_STATS, &fops, dev, stats_attrs);
     // Since we use safe_device_init, in case of failure all cleanup will be
     // handled already, only need to return 0 for non-negative major (=no error)

@@ -1,22 +1,31 @@
 #ifndef FW_FILTER_H
 #define FW_FILTER_H
 
-#define NUM_HOOKS 3
+#define NUM_HOOKS 2
+
+#define HOOK_INIT(_number) {     \
+    .hook     = &filter,         \
+    .pf       = PF_INET,         \
+    .hooknum  = _number,         \
+    .priority = NF_IP_PRI_FIRST, \
+    .owner    = THIS_MODULE
+}
+
+#define DROP_AND_RET { \
+    printk(KERN_INFO "*** packet blocked ***\n"); \
+    ++p_block; \
+    return NF_DROP; \
+}
+
+#define PASS_AND_RET { \
+    printk(KERN_INFO "*** packet passed ***\n"); \
+    ++p_pass; \
+    return NF_ACCEPT; \
+}
 
 /************************************
  * Firewall filter "public" methods *
  ************************************/
-
-/* Resets all the packet counters to 0 */
-void reset_counters(void);
-
-/* Returns the packet counter indicated by the first letter:
- * [t]otal
- * [b]locked
- * [p]assed
- * or -1 otherwise
- */
-int get_counter(char);
 
 /* initialize the filter - reset counters, set up and register hooks.
  * returns 0 on success, negative error otherwise
