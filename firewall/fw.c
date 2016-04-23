@@ -28,7 +28,7 @@ static void cleanup_firewall(int step){
     case 3:
         cleanup_stats();
     case 2:
-        //cleanup_log();
+        cleanup_log();
     case 1:
         class_destroy(sysfs_class);
     }
@@ -42,10 +42,15 @@ static int __init firewall_init_function(void) {
     }
 
     //init log
+    if ((err = init_log())){
+        PERR("log interface init failed");
+        cleanup_firewall(1);
+        return err;
+    }
     //init stats
     if ((err = init_stats())){
         PERR("stats interface init failed");
-        cleanup_firewall(1);
+        cleanup_firewall(2);
         return err;
     }
 #ifdef DEBUG
@@ -55,7 +60,7 @@ static int __init firewall_init_function(void) {
     //init filter
     if ((err = init_filter())){
         PERR("filter init failed");
-        cleanup_firewall(3);
+        cleanup_firewall(4);
         return err;
     }
 #ifdef DEBUG

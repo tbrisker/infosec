@@ -59,7 +59,7 @@ int init_stats(void){
 
 void cleanup_stats(void){
 #ifdef DEBUG
-    printk(KERN_DEBUG "Cleaning up stats, step %d\n", step);
+    printk(KERN_DEBUG "Cleaning up stats\n");
 #endif
     safe_device_cleanup(major_number, 3, dev, stats_attrs);
 }
