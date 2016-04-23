@@ -15,7 +15,6 @@ static ssize_t display(struct device *dev, struct device_attribute *attr, char *
     printk(KERN_DEBUG "displaying %s\n", attr->attr.name);
 #endif
     return scnprintf(buf, PAGE_SIZE, "%u\n", get_counter(attr->attr.name[0]));
-    return -1;
 }
 
 /* Handler function for the reset attribute.
