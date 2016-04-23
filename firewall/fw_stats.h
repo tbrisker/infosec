@@ -11,12 +11,12 @@
  * on failure it cleans up after itself and returns a negative number.
  * return 0 on success.
  */
-int init_sysfs(void);
+int init_stats(void);
 
 /* Clean up the sysfs device starting from the stage passed in the parameter.
  * This is so we can reuse the code in init_sysfs in case it fails in the
  * process of creating the device. Passing 3 cleans everything.
  */
-void cleanup_sysfs(void);
+void cleanup_stats(void);
 
 #endif

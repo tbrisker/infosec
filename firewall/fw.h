@@ -17,6 +17,7 @@
 #include "fw_stats.h"
 #include "fw_log.h"
 #include "fw_rules.h"
+#include "util.h"
 
 // auxiliary strings, for your convenience
 #define DEVICE_NAME_CONN_TAB		"conn_tab"

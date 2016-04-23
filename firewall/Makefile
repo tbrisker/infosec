@@ -1,5 +1,5 @@
 obj-m := firewall.o
-fw-objs := fw.o fw_filter.o fw_stats.o fw_log.o fw_rules.o util.o
+firewall-objs := fw.o fw_filter.o fw_stats.o fw_log.o fw_rules.o util.o
 
 all:
 	make -C /lib/modules/$(shell uname -r)/build M=$(PWD) modules

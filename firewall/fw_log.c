@@ -19,7 +19,7 @@ static int compare_rows(log_row_t first, log_row_t second){
             first.src_port == second.src_port &&
             first.dst_ip   == second.dst_ip   &&
             first.dst_port == second.dst_port &&
-            first.reason   == second.reason)
+            first.reason   == second.reason);
 }
 
 /* If a similar row is already in the list, return it, NULL otherwise */
@@ -36,13 +36,13 @@ static log_row_t * find_row(log_row_t * row){
 static void log_row(log_row_t * new_row){
     log_row_t * old_row = find_row(new_row);
     if (old_row){ //A similar row already exists
-        old_row->timestamp = new_row.timestamp;
+        old_row->timestamp = new_row->timestamp;
         old_row->count++;
         kfree(new_row); //no need to save the row, free the memory
     } else { //this is the first time we have such a row, add it to the list.
         new_row->count = 1;
         ++log_size;
-        list_add(&new_row->list, log_list);
+        list_add(&new_row->list, &log_list);
     }
 }
 
@@ -51,7 +51,7 @@ static void log_row(log_row_t * new_row){
 int add_row(unsigned char protocol, unsigned char action, unsigned char hooknum,
             __be32 src_ip, __be32 dst_ip, __be16 src_port, __be16 dst_port,
             reason_t reason){
-    log_row_t * row = kmalloc(sizof(log_row_t), GFP_KERNEL);
+    log_row_t * row = kmalloc(sizeof(log_row_t), GFP_KERNEL);
     if (!row){
         printk(KERN_ERR "Error allocating memory for log row.\n");
         return -ENOMEM;
@@ -71,8 +71,8 @@ int add_row(unsigned char protocol, unsigned char action, unsigned char hooknum,
 
 static void clear_log(void){
     log_row_t *cur, *tmp;
-    list_for_each_entry_safe(cur, tmp, log_list, list){
-        list_del(cur->list);
+    list_for_each_entry_safe(cur, tmp, &log_list, list){
+        list_del(&cur->list);
         kfree(cur);
     }
     log_size = 0;
@@ -89,12 +89,12 @@ int open_log(struct inode *_inode, struct file *_file){
 }
 
 ssize_t read_log(struct file *filp, char *buff, size_t length, loff_t *offp){
-    if (!log_size || cur_row == log_list) //the log is empty or we reached the end
+    if (!log_size || cur_row == &log_list) //the log is empty or we reached the end
         return 0;
     if (length < ROW_SIZE){ // length must be at least ROWSIZE for read to work, we don't send partial rows.
         return -ENOMEM;
     }
-    if (copy_to_user(buff, list_entry(cur_row, log_row_t, list), ROW_SIZE)  // Send the data to the user through 'copy_to_user'
+    if (copy_to_user(buff, list_entry(cur_row, log_row_t, list), ROW_SIZE)){  // Send the data to the user through 'copy_to_user'
         return -EFAULT;
     }
     cur_row = cur_row->next; //advance to the next row for the next read
@@ -126,7 +126,7 @@ static struct device_attribute log_attrs[]= {
         __ATTR_NULL // stopping condition for loop in device_add_attributes()
     };
 
-void cleanup_log_device(int step){
+int init_log_device(void) {
 #ifdef DEBUG
     printk(KERN_DEBUG "Cleaning up log device, step %d\n", step);
 #endif
@@ -137,7 +137,6 @@ void cleanup_log_device(int step){
     return (major_number < 0) ? major_number : 0;
 }
 
-int init_log_device(void) {
+void cleanup_log_device(int step){
     safe_device_cleanup(major_number, 3, dev, log_attrs);
-    return 0;
 }
