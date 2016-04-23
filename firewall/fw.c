@@ -6,6 +6,19 @@ MODULE_AUTHOR("Tomer Brisker");
 /************************
  * Firewall module core *
  ************************/
+struct class *sysfs_class = NULL;
+
+static int init_sysfs_class(void){
+    sysfs_class = class_create(THIS_MODULE, CLASS_NAME);
+    if (IS_ERR(sysfs_class)) {
+        printk(KERN_ERR "Error creating class");
+        return -1;
+    }
+#ifdef DEBUG
+    printk(KERN_DEBUG "created class %s\n", sysfs_class->name);
+#endif
+    return 0;
+}
 
 static int __init firewall_init_function(void) {
     int err;
