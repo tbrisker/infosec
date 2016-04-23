@@ -7,14 +7,6 @@ MODULE_AUTHOR("Tomer Brisker");
 /*  Firewall stats interface  */
 /******************************/
 
-/* variables to hold various needed structs and identifiers. */
-static int major_number;
-static struct class* sysfs_class = NULL;
-static struct device* sysfs_device = NULL;
-static struct file_operations fops = {
-    .owner = THIS_MODULE
-};
-
 /* Handler function for displaying a certain attribute.
  * gets the counter from the firewall matching the attribute name first letter.
  */
@@ -40,14 +32,15 @@ static ssize_t reset(struct device *dev, struct device_attribute *attr, const ch
     return count;
 }
 
-/* Array of device attributes to set for the device.
- * We make use of the class dev_attrs pointer to have all the attributes
- * created automatically when the device is created instead of handling this
- * manually and having to clean up if something fails.
- * This takes advantage of the device_add_attributes() "private" function that
- * is called indirectly during device_create().
- */
-static struct device_attribute sysfs_attributes[5]= {
+/* variables to hold various needed structs and identifiers. */
+static int major_number;
+static struct device* dev = NULL;
+static struct file_operations fops = {
+    .owner = THIS_MODULE
+};
+
+/* Array of device attributes to set for the device. */
+static struct device_attribute stats_attrs[]= {
         __ATTR(total, S_IRUSR, display, NULL),
         __ATTR(blocked, S_IRUSR, display, NULL),
         __ATTR(passed, S_IRUSR, display, NULL),
@@ -55,57 +48,19 @@ static struct device_attribute sysfs_attributes[5]= {
         __ATTR_NULL // stopping condition for loop in device_add_attributes()
     };
 
-int init_stats(void){
+int init_stats(){
 #ifdef DEBUG
     printk(KERN_DEBUG "Initializing stats device...\n");
 #endif
-    //create char device
-    major_number = register_chrdev(0, DEVICE_NAME_STATS, &fops);
-    if (major_number < 0){
-        printk(KERN_ERR "Error registering chrdev");
-        return major_number;
-    }
-#ifdef DEBUG
-    printk(KERN_DEBUG "Registered chardev %u\n", major_number);
-#endif
-
-    //create stats class
-    sysfs_class = class_create(THIS_MODULE, CLASS_NAME);
-    if (IS_ERR(sysfs_class)) {
-        printk(KERN_ERR "Error creating class");
-        cleanup_stats(1);
-        return -1;
-    }
-#ifdef DEBUG
-    printk(KERN_DEBUG "created class %s\n", sysfs_class->name);
-#endif
-
-    //set the default dev attrs so we don't have to manually add and clean them up
-    sysfs_class->dev_attrs = sysfs_attributes;
-
-    //create stats device
-    sysfs_device = device_create(sysfs_class, NULL, MKDEV(major_number, 0), NULL, DEVICE_NAME_STATS);
-    if (IS_ERR(sysfs_device)) {
-        printk(KERN_ERR "Error creating device");
-        cleanup_stats(2);
-        return -2;
-    }
-#ifdef DEBUG
-    printk(KERN_DEBUG "created device %s\n", dev_name(sysfs_device));
-#endif
-    return 0;
+    major_number = safe_device_init(DEVICE_NAME_STATS, &fops, dev, stats_attrs);
+    // Since we use safe_device_init, in case of failure all cleanup will be
+    // handled already, only need to return 0 for non-negative major (=no error)
+    return (major_number < 0) ? major_number : 0;
 }
 
-void cleanup_stats(int step){
+void cleanup_stats(){
 #ifdef DEBUG
     printk(KERN_DEBUG "Cleaning up stats, step %d\n", step);
 #endif
-    switch (step){
-        case 3:
-            device_destroy(sysfs_class, MKDEV(major_number, 0));
-        case 2:
-            class_destroy(sysfs_class);
-        case 1:
-            unregister_chrdev(major_number, DEVICE_NAME_STATS);
-    }
+    safe_device_cleanup(major_number, 3, dev, stats_attrs)
 }

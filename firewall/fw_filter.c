@@ -3,9 +3,9 @@
 MODULE_LICENSE("GPL");
 MODULE_AUTHOR("Tomer Brisker");
 
-/************
- * Firewall *
- ************/
+/**********
+ * filter *
+ **********/
 
 /* Array to hold our hook definitions so we can easily register and unregister them */
 static struct nf_hook_ops hooks[NUM_HOOKS];
@@ -29,14 +29,14 @@ int get_counter(char id){
     return -1;
 }
 
-/* the main firewall logic - this function decide what packets are blocked and which are allowed */
-static unsigned int firewall(unsigned int hooknum,
+/* the main filter logic - this function decide what packets are blocked and which are allowed */
+static unsigned int filter(unsigned int hooknum,
                              struct sk_buff *skb,
                              const struct net_device *in,
                              const struct net_device *out,
                              int (*okfn)(struct sk_buff *)){
 #ifdef DEBUG
-    printk(KERN_DEBUG "firewall triggered, hooknum: %d, in: %s, out: %s\n",
+    printk(KERN_DEBUG "filter triggered, hooknum: %d, in: %s, out: %s\n",
             hooknum, in ? in->name : "none", out ? out->name : "none");
 #endif
     ++p_total;
@@ -54,19 +54,19 @@ static unsigned int firewall(unsigned int hooknum,
     }
 }
 
-/* This function initializes the hook_ops struct, sets the hooknum and connects it to the firewall */
+/* This function initializes the hook_ops struct, sets the hooknum and connects it to the filter */
 static void hook_ops_init(struct nf_hook_ops *hook_ops, unsigned int hooknum){
     memset(hook_ops, 0, sizeof(struct nf_hook_ops));
     hook_ops->pf = PF_INET;
     hook_ops->hooknum = hooknum;
     hook_ops->priority = NF_IP_PRI_FIRST;
-    hook_ops->hook = &firewall;
+    hook_ops->hook = &filter;
 #ifdef DEBUG
     printk(KERN_DEBUG "hook %d initialized\n", hooknum);
 #endif
 }
 
-int init_firewall(void){
+int init_filter(void){
     reset_counters();
 #ifdef DEBUG
     printk(KERN_DEBUG "Initializing hooks...\n");
@@ -83,7 +83,7 @@ int init_firewall(void){
     return nf_register_hooks(hooks, NUM_HOOKS);
 }
 
-void cleanup_firewall(void){
+void cleanup_filter(void){
 #ifdef DEBUG
     printk(KERN_DEBUG "Removing hooks...\n");
 #endif

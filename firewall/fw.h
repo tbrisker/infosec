@@ -36,5 +36,5 @@ typedef enum {
 	MINOR_LOG      = 1,
 } minor_t;
 
-
+extern struct class *sysfs_class; //we register all devices under a single class
 #endif // _FW_H_
