@@ -8,7 +8,7 @@ MODULE_AUTHOR("Tomer Brisker");
 
 /* init the list representing the log */
 static LIST_HEAD(log_list);
-static int log_size;
+static unsigned int log_size;
 
 /* Compare two log rows to see if they can be combined */
 static int compare_rows(log_row_t first, log_row_t second){
@@ -75,15 +75,15 @@ static void clear_log(void){
         list_del(cur->list);
         kfree(cur);
     }
+    log_size = 0;
 }
 
 /* log char device functions and handlers */
 static int major_number;
-static struct class *sysfs_class = NULL;
-static struct device *sysfs_device = NULL;
+static struct device *dev = NULL;
 static struct list_head *cur_row;
 
-int my_open(struct inode *_inode, struct file *_file){
+int open_log(struct inode *_inode, struct file *_file){
     cur_row = log_list.next;
     return 0;
 }
@@ -107,41 +107,37 @@ static struct file_operations fops = {
     .read = read_log
 };
 
+/* log sysfs functions and attributes */
+static ssize_t show_size(struct device *dev, struct device_attribute *attr, char *buf){
+    return scnprintf(buf, PAGE_SIZE, "%u\n", log_size);
+}
+
+static ssize_t sysfs_clear(struct device *dev, struct device_attribute *attr, const char *buf, size_t count){
+    char temp;
+    if (sscanf(buf, "%1c", &temp) == 1){
+        clear_log();
+    }
+    return count;
+}
+
+static struct device_attribute log_attrs[]= {
+        __ATTR(log_size, S_IRUSR, show_size, NULL),
+        __ATTR(log_clear, S_IWUSR, NULL, sysfs_clear),
+        __ATTR_NULL // stopping condition for loop in device_add_attributes()
+    };
+
 void cleanup_log_device(int step){
 #ifdef DEBUG
     printk(KERN_DEBUG "Cleaning up log device, step %d\n", step);
 #endif
-    switch (step){
-        case 3:
-            device_destroy(sysfs_class, MKDEV(major_number, 0));
-        case 2:
-            class_destroy(sysfs_class);
-        case 1:
-            unregister_chrdev(major_number, DEVICE_NAME_LOG);
-    }
+    log_size = 0;
+    major_number = safe_device_init(DEVICE_NAME_LOG, &fops, dev, log_attrs);
+    // Since we use safe_device_init, in case of failure all cleanup will be
+    // handled already, only need to return 0 for non-negative major (=no error)
+    return (major_number < 0) ? major_number : 0;
 }
 
 int init_log_device(void) {
-    major_number = register_chrdev(0, DEVICE_NAME_LOG, &fops);
-
-    if (major_number < 0) {
-        return -1;
-    }
-
-    sysfs_class = class_create(THIS_MODULE, CLASS_NAME);
-
-    if (IS_ERR(sysfs_class)) {
-        unregister_chrdev(major_number, DEVICE_NAME_LOG);
-        return -1;
-    }
-
-    sysfs_device = device_create(sysfs_class, NULL, MKDEV(major_number, 0), NULL, "sysfs_class" "_" "sysfs_Device");
-
-    if (IS_ERR(sysfs_device)) {
-        class_destroy(sysfs_class);
-        unregister_chrdev(major_number, "Sysfs_Device");
-        return -1;
-    }
-
+    safe_device_cleanup(major_number, 3, dev, log_attrs);
     return 0;
 }
