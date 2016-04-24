@@ -26,11 +26,6 @@
 #define IN_NET_DEVICE_NAME			"eth1"
 #define OUT_NET_DEVICE_NAME			"eth2"
 
-// auxiliary values, for your convenience
-#define IP_VERSION		(4)
-#define PORT_ANY		(0)
-#define PORT_ABOVE_1023	(1023)
-
 // device minor numbers, for your convenience
 typedef enum {
 	MINOR_RULES    = 0,

@@ -8,7 +8,7 @@
     .pf       = PF_INET,         \
     .hooknum  = _number,         \
     .priority = NF_IP_PRI_FIRST, \
-    .owner    = THIS_MODULE
+    .owner    = THIS_MODULE      \
 }
 
 #define DROP_AND_RET { \

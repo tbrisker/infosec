@@ -3,6 +3,10 @@
 
 #define DEVICE_NAME_RULES           "rules"
 
+// auxiliary values, for your convenience
+#define IP_VERSION      (4)
+#define PORT_ANY        (0)
+#define PORT_ABOVE_1023 (1023)
 #define MAX_RULES       (50)
 
 // the protocols we will work with

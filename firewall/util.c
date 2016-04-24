@@ -48,7 +48,7 @@ int safe_device_init(const char *name, const struct file_operations *fops,
 #endif
 
     //create the device
-    dev = device_create(sysfs_class, NULL, MKDEV(major_number, 0), NULL, CLASS_NAME "_" name);
+    dev = device_create(sysfs_class, NULL, MKDEV(major_number, 0), NULL, CLASS_NAME "_%s", name);
     if (IS_ERR(dev)) {
         printk(KERN_ERR "Error creating device\n");
         safe_device_cleanup(major_number, 1, NULL, NULL);
