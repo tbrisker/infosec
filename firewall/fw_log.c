@@ -33,7 +33,7 @@ static log_row_t * find_row(log_row_t * row){
 }
 
 /* Add a log_row_t entry to the log or update an existing similar one */
-static void log_row(log_row_t * new_row){
+static void add_row(log_row_t * new_row){
     log_row_t * old_row = find_row(new_row);
     if (old_row){ //A similar row already exists
         old_row->timestamp = new_row->timestamp;
@@ -48,10 +48,11 @@ static void log_row(log_row_t * new_row){
 
 /* Add a row to the list with the given parameters. */
 /* Note: the row is allocated memory, make sure to delete it when done */
-int add_row(unsigned char protocol, unsigned char action, unsigned char hooknum,
+int log_row(unsigned char protocol, unsigned char action, unsigned char hooknum,
             __be32 src_ip, __be32 dst_ip, __be16 src_port, __be16 dst_port,
             reason_t reason){
-    log_row_t * row = kmalloc(sizeof(log_row_t), GFP_KERNEL);
+    log_row_t * row = kmalloc(sizeof(log_row_t), GFP_ATOMIC);
+
     if (!row){
         printk(KERN_ERR "Error allocating memory for log row.\n");
         return -ENOMEM;
@@ -65,7 +66,7 @@ int add_row(unsigned char protocol, unsigned char action, unsigned char hooknum,
     row->dst_port  = dst_port;
     row->reason    = reason;
     row->timestamp = get_seconds();
-    log_row(row);
+    add_row(row);
     return 0;
 }
 
@@ -84,11 +85,17 @@ static struct device *dev = NULL;
 static struct list_head *cur_row;
 
 static int open_log(struct inode *_inode, struct file *_file){
+#ifdef DEBUG
+    printk(KERN_DEBUG "opened log\n");
+#endif
     cur_row = log_list.next;
     return 0;
 }
 
 static ssize_t read_log(struct file *filp, char *buff, size_t length, loff_t *offp){
+#ifdef DEBUG
+    printk(KERN_DEBUG "read log, length: %d, log size: %d, row size: %d\n", length, log_size, ROW_SIZE);
+#endif
     if (!log_size || cur_row == &log_list){ //the log is empty or we reached the end
         return 0;
     }
