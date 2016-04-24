@@ -24,7 +24,7 @@ static void cleanup_firewall(int step){
     case 5:
         cleanup_filter();
     case 4:
-        //cleanup_rules();
+        cleanup_rules();
     case 3:
         cleanup_stats();
     case 2:
@@ -57,6 +57,11 @@ static int __init firewall_init_function(void) {
     printk(KERN_DEBUG "stats interface initialized successfully!\n");
 #endif
     //init rules
+    if ((err = init_rules())){
+        PERR("rules interface init failed");
+        cleanup_firewall(3);
+        return err;
+    }
     //init filter
     if ((err = init_filter())){
         PERR("filter init failed");
@@ -64,7 +69,7 @@ static int __init firewall_init_function(void) {
         return err;
     }
 #ifdef DEBUG
-    printk(KERN_DEBUG "filter initialized successfully!\n");
+    printk(KERN_DEBUG "firewall initialized successfully!\n");
 #endif
     return 0;
 }
