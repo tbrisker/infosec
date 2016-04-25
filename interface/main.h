@@ -12,8 +12,13 @@
 #include <assert.h>
 #include <errno.h>
 #include <string.h>
+#include <time.h>
+#include <arpa/inet.h>
+
 #define SYSFS_PATH(file) "/sys/class/fw/" #file
-#define DEV_PATH(file) "/dev/" #file
+#define DEV_PATH(file) "/dev/fw_" #file
+
+/* Type definitions copied from the kernel module with minor adjustments */
 
 // the protocols we will work with
 typedef enum {
@@ -37,17 +42,12 @@ typedef enum {
 #define DEVICE_NAME_LOG    "log"
 #define CLASS_NAME         "fw"
 
+
 // auxiliary values, for your convenience
 #define IP_VERSION      (4)
 #define PORT_ANY        (0)
 #define PORT_ABOVE_1023 (1023)
 #define MAX_RULES       (50)
-
-// device minor numbers, for your convenience
-typedef enum {
-    MINOR_RULES    = 0,
-    MINOR_LOG      = 1,
-} minor_t;
 
 typedef enum {
     ACK_NO      = 0x01,
