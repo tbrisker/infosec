@@ -23,7 +23,7 @@ static ssize_t read_rules(struct file *filp, char *buff, size_t length, loff_t *
     if (!rule_count){ //the rule list is empty
         return 0;
     }
-    if (length < RULE_SIZE*rule_count){ // length must be at least RULE_SIZE for read to work, we don't send partial rows.
+    if (length < RULE_SIZE*rule_count){ // length must be at least RULE_SIZE for read to work.
         return -ENOMEM;
     }
     if (copy_to_user(buff, rule_list, RULE_SIZE*rule_count)){  // Send the data to the user through 'copy_to_user'
@@ -32,9 +32,33 @@ static ssize_t read_rules(struct file *filp, char *buff, size_t length, loff_t *
     return RULE_SIZE*rule_count;
 }
 
+static ssize_t write_rules(struct file *filp, char *buff, size_t length, loff_t *offp){
+#ifdef DEBUG
+    printk(KERN_DEBUG "write rules, length: %d, size: %d\n", length, sizeof(rule_list));
+#endif
+    if (length > RULE_SIZE*MAX_RULES){ // data is too big
+        return -ENOMEM;
+    }
+    if (length % RULE_SIZE != 0) { //bad size - only copy complete rules
+        return -EINVAL;
+    }
+    rule_t temp[length / RULE_SIZE];
+    if (copy_from_user(temp, buff, length)){  // Send the data to the user through 'copy_to_user'
+        return -EFAULT;
+    }
+    if (invalid_ruleset(temp)){ //make sure the rules are valid
+        return -EINVAL;
+    }
+    memcpy(rule_list, temp, length); //override the current list
+    rule_count = length / RULE_SIZE;
+    return length;
+}
+
+
 static struct file_operations fops = {
     .owner = THIS_MODULE,
-    .read = read_rules
+    .read = read_rules,
+    .write = write_rules
 };
 
 /* log sysfs functions and attributes */
@@ -55,9 +79,18 @@ static ssize_t set_active(struct device *dev, struct device_attribute *attr, con
     return count;
 }
 
+static ssize_t clear_rules(struct device *dev, struct device_attribute *attr, const char *buf, size_t count){
+    char temp;
+    if (sscanf(buf, "%1c", &temp) == 1){
+        rule_count = 0;
+    }
+    return count;
+}
+
 static struct device_attribute rule_attrs[]= {
         __ATTR(rules_size, S_IRUSR, show_size, NULL),
         __ATTR(active, S_IWUSR|S_IRUSR, show_active, set_active),
+        __ATTR(rules_clear, S_IWUSR, NULL, clear_rules),
         __ATTR_NULL // stopping condition for loop in device_add_attributes()
     };
 
