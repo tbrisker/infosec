@@ -15,7 +15,7 @@ static void parse_ip_hdr(rule_t *rule, struct sk_buff *skb){
 }
 
 static void parse_tcp_hdr(rule_t *rule, struct sk_buff *skb, char offset){
-    struct tcphdr * trans_header = tcp_hdr(skb)+offset;
+    struct tcphdr * trans_header = (struct tcphdr *)(skb_transport_header(skb)+offset);;
     rule->src_port = trans_header->source;
     rule->dst_port = trans_header->dest;
     rule->ack = trans_header -> ack ? ACK_YES : ACK_NO;
@@ -23,7 +23,7 @@ static void parse_tcp_hdr(rule_t *rule, struct sk_buff *skb, char offset){
 }
 
 static void parse_udp_hdr(rule_t *rule, struct sk_buff *skb, char offset){
-    struct udphdr * trans_header = udp_hdr(skb)+offset;
+    struct udphdr * trans_header = (struct udphdr *)(skb_transport_header(skb)+offset);
     rule->src_port = trans_header->source;
     rule->dst_port = trans_header->dest;
 }

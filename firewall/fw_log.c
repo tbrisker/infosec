@@ -42,7 +42,7 @@ static void add_row(log_row_t * new_row){
     } else { //this is the first time we have such a row, add it to the list.
         new_row->count = 1;
         ++log_size;
-        list_add(&new_row->list, &log_list);
+        list_add_tail(&new_row->list, &log_list);
     }
 }
 
@@ -52,7 +52,7 @@ int log_row(unsigned char protocol, unsigned char action, unsigned char hooknum,
             __be32 src_ip, __be32 dst_ip, __be16 src_port, __be16 dst_port,
             reason_t reason){
     log_row_t * row = kmalloc(sizeof(log_row_t), GFP_ATOMIC);
-
+    memset(row, 0, sizeof(log_row_t));
     if (!row){
         printk(KERN_ERR "Error allocating memory for log row.\n");
         return -ENOMEM;

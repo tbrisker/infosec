@@ -32,7 +32,9 @@ static ssize_t read_rules(struct file *filp, char *buff, size_t length, loff_t *
     return RULE_SIZE*rule_count;
 }
 
-static ssize_t write_rules(struct file *filp, char *buff, size_t length, loff_t *offp){
+static ssize_t write_rules(struct file *filp, const char *buff, size_t length, loff_t *offp){
+    rule_t temp[length / RULE_SIZE];
+
 #ifdef DEBUG
     printk(KERN_DEBUG "write rules, length: %d, size: %d\n", length, sizeof(rule_list));
 #endif
@@ -42,13 +44,12 @@ static ssize_t write_rules(struct file *filp, char *buff, size_t length, loff_t 
     if (length % RULE_SIZE != 0) { //bad size - only copy complete rules
         return -EINVAL;
     }
-    rule_t temp[length / RULE_SIZE];
     if (copy_from_user(temp, buff, length)){  // Send the data to the user through 'copy_to_user'
         return -EFAULT;
     }
-    if (invalid_ruleset(temp)){ //make sure the rules are valid
-        return -EINVAL;
-    }
+    // if (invalid_ruleset(temp)){ //make sure the rules are valid
+        // return -EINVAL;
+    // }
     memcpy(rule_list, temp, length); //override the current list
     rule_count = length / RULE_SIZE;
     return length;
