@@ -14,9 +14,10 @@
 #include <string.h>
 #include <time.h>
 #include <arpa/inet.h>
+#include "util.h"
 
-#define SYSFS_PATH(file) "/sys/class/fw/" #file
-#define DEV_PATH(file) "/dev/fw_" #file
+#define SYSFS_PATH(file) "/sys/class/fw/" file
+#define DEV_PATH(file) "/dev/fw_" file
 
 /* Type definitions copied from the kernel module with minor adjustments */
 
@@ -48,6 +49,10 @@ typedef enum {
 #define PORT_ANY        (0)
 #define PORT_ABOVE_1023 (1023)
 #define MAX_RULES       (50)
+
+//netfilter values
+#define NF_DROP 0
+#define NF_ACCEPT 1
 
 typedef enum {
     ACK_NO      = 0x01,
