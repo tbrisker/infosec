@@ -174,8 +174,6 @@ char * ack_to_s(char ack){
     }
 }
 
-
-
 char reason_str[5];
 char * reason_to_s(int reason){
     switch (reason){
@@ -216,7 +214,7 @@ char * port_to_s(unsigned short port){
     case PORT_ABOVE_1023:
         return ">1023";
     default:
-        if (sprintf(port_s, "%hu", port) == 1)
+        if (snprintf(port_s, 6, "%hu", port) == 1)
             return port_s;
     }
     return "ERR";
