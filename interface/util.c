@@ -115,7 +115,7 @@ int s_to_dir(char *str){
 /* Convert a string to ip and mask */
 int s_to_ip_and_mask(char *str, int *ip){
     struct in_addr addr = {0};
-    char *nps, *strcopy;
+    char *nps;
     int mask = 0;
     if (!strcmp(str, "any")){
         *ip = 0; // 0.0.0.0 will be used to denote "any" ip as is common.
@@ -138,6 +138,18 @@ int s_to_ip_and_mask(char *str, int *ip){
     return mask;
 }
 
+char ip_and_mask[20];
+char * ip_and_mask_to_s(int ip, int mask){
+    struct in_addr addr = {ip};
+    char mask_s[4];
+    strcpy(ip_and_mask, inet_ntoa(addr));
+    if (mask>0 && mask <=32){
+        sprintf(mask_s, "/%d", mask);
+        strcat(ip_and_mask, mask_s);
+    }
+    return ip_and_mask;
+}
+
 char ack_to_chr(char *str){
     if (!strcmp(str, "yes"))
         return ACK_YES;
@@ -148,6 +160,21 @@ char ack_to_chr(char *str){
     printf("Invalid ack %s!", str);
     return -1;
 }
+
+char * ack_to_s(char ack){
+    switch(ack){
+    case ACK_YES:
+        return "yes";
+    case ACK_NO:
+        return "no";
+    case ACK_ANY:
+        return "any";
+    default:
+        return "ERR";
+    }
+}
+
+
 
 char reason_str[5];
 char * reason_to_s(int reason){
@@ -168,4 +195,29 @@ char * reason_to_s(int reason){
         snprintf(reason_str, 5, "%d", reason);
     }
     return reason_str;
+}
+
+int s_to_port(char *str){
+    unsigned short port;
+    if (!strcmp(str, "any"))
+        return PORT_ANY;
+    if (!strcmp(str, ">1023"))
+        return PORT_ABOVE_1023;
+    if (sscanf(str, "%hu", &port) == 1 && port < 1024)
+        return port;
+    return -1;
+}
+
+char port_s[6];
+char * port_to_s(unsigned short port){
+    switch (port){
+    case PORT_ANY:
+        return "any";
+    case PORT_ABOVE_1023:
+        return ">1023";
+    default:
+        if (sprintf(port_s, "%hu", port) == 1)
+            return port_s;
+    }
+    return "ERR";
 }

@@ -49,6 +49,7 @@ typedef enum {
 #define PORT_ANY        (0)
 #define PORT_ABOVE_1023 (1023)
 #define MAX_RULES       (50)
+#define RULE_SIZE sizeof(rule_t)
 
 //netfilter values
 #define NF_DROP 0
