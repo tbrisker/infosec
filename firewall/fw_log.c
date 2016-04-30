@@ -8,6 +8,7 @@ MODULE_AUTHOR("Tomer Brisker");
 
 /* init the list representing the log */
 static LIST_HEAD(log_list);
+static struct list_head *cur_row; //used for iterating the list for read
 static unsigned int log_size;
 
 /* Compare two log rows to see if they can be combined */
@@ -72,6 +73,7 @@ int log_row(unsigned char protocol, unsigned char action, unsigned char hooknum,
 
 static void clear_log(void){
     log_row_t *cur, *tmp;
+    cur_row = &log_list; // prevent reads while deleting the list
     list_for_each_entry_safe(cur, tmp, &log_list, list){
         list_del(&cur->list);
         kfree(cur);
@@ -82,7 +84,6 @@ static void clear_log(void){
 /* log char device functions and handlers */
 static int major_number;
 static struct device *dev = NULL;
-static struct list_head *cur_row;
 
 static int open_log(struct inode *_inode, struct file *_file){
 #ifdef DEBUG

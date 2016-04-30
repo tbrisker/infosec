@@ -25,7 +25,9 @@ typedef struct {
     unsigned int     count;          // counts this line's hits
     struct list_head list;           // the log is a linked list of rows
 } log_row_t;
+//we don't want to pass the list_head part to the user, ignore it in the row size
 #define ROW_SIZE (sizeof(log_row_t) - sizeof(struct list_head))
+
 /*********************************************
  * Firewall log interface - "public" methods *
  *********************************************/
