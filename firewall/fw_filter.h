@@ -23,6 +23,10 @@
     return NF_ACCEPT; \
 }
 
+#define LOOPBACK_NET_DEVICE_NAME    "lo"
+#define IN_NET_DEVICE_NAME          "eth1"
+#define OUT_NET_DEVICE_NAME         "eth2"
+
 /************************************
  * Firewall filter "public" methods *
  ************************************/
