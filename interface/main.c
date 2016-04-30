@@ -25,26 +25,38 @@ void show_log(void){
     }
     close(fd);
 }
-loopback any 127.0.0.1/8 127.0.0.1/8 any any any any accept
+// loopback any 127.0.0.1/8 127.0.0.1/8 any any any any accept
+//telnet2 in any 10.0.1.1/24 TCP 23 >1023 yes accept
 
 void print_rule(rule_t rule){
     printf("%s %s %s %s %s %s %s %s %s\n",
-        rule.name, dir_to_s(rule.direction));
+        rule.rule_name, dir_to_s(rule.direction),
+        ip_and_mask_to_s(rule.src_ip, rule.src_prefix_size),
+        ip_and_mask_to_s(rule.dst_ip, rule.dst_prefix_size),
+        prot_to_s(rule.protocol),
+        port_to_s(rule.src_port),
+        port_to_s(rule.dst_port),
+        ack_to_s(rule.ack),
+        action_to_s(rule.action));
 }
 
-void show_rules(int count){
-    int fd,i;
-    rule_t rules[count];
+void show_rules(){
+    int fd, i, count;
+    rule_t rules[MAX_RULES];
     fd = open(DEV_PATH("rules"), O_RDONLY);
-    if (fd<0){
+    if (fd < 0){
         perror("Error opening file");
         return;
     }
-    if (read(fd, &rules, sizeof(rule_t)*count) == sizeof(rule_t)*count) {
-        for (i = 0; i < count; ++i)
-            print_rule(rules[i]);
-    }
+    count = read(fd, &rules, RULE_SIZE*MAX_RULES);
     close(fd);
+    if (count < 0){
+        perror("Error reading file");
+        return;
+    }
+    count = count / RULE_SIZE;
+    for (i = 0; i < count; ++i)
+        print_rule(rules[i]);
 }
 
 void load_rules(const char * path){
@@ -70,9 +82,7 @@ int main(int argc, char const *argv[]){
         return 0;
     }
     if (!strcmp(argv[1], "show_rules")){
-        count = read_int(SYSFS_PATH("fw_rules/rules_size"));
-        if (count > 0)
-            show_rules(count);
+        show_rules();
         return 0;
     }
     if (!strcmp(argv[1], "clear_rules")){
