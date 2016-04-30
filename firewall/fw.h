@@ -22,9 +22,6 @@
 // auxiliary strings, for your convenience
 #define DEVICE_NAME_CONN_TAB		"conn_tab"
 #define CLASS_NAME					"fw"
-#define LOOPBACK_NET_DEVICE_NAME	"lo"
-#define IN_NET_DEVICE_NAME			"eth1"
-#define OUT_NET_DEVICE_NAME			"eth2"
 
 // device minor numbers, for your convenience
 typedef enum {

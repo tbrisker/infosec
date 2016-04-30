@@ -7,25 +7,39 @@ MODULE_AUTHOR("Tomer Brisker");
  * filter *
  **********/
 
-static void parse_ip_hdr(rule_t *rule, struct sk_buff *skb){
+static void parse_ip_hdr(rule_t *pkt, struct sk_buff *skb){
     struct iphdr *ip_header = ip_hdr(skb);
-    rule->src_ip = ip_header->saddr;
-    rule->dst_ip = ip_header->daddr;
-    rule->protocol = ip_header->protocol;
+    pkt->src_ip = ip_header->saddr;
+    pkt->dst_ip = ip_header->daddr;
+    pkt->protocol = ip_header->protocol;
 }
 
-static void parse_tcp_hdr(rule_t *rule, struct sk_buff *skb, char offset){
-    struct tcphdr * trans_header = (struct tcphdr *)(skb_transport_header(skb)+offset);;
-    rule->src_port = trans_header->source;
-    rule->dst_port = trans_header->dest;
-    rule->ack = trans_header -> ack ? ACK_YES : ACK_NO;
-    //check for xmas?
+static reason_t parse_tcp_hdr(rule_t *pkt, struct sk_buff *skb, char offset){
+    struct tcphdr * tcp_header = (struct tcphdr *)(skb_transport_header(skb)+offset);;
+    pkt->src_port = tcp_header->source;
+    pkt->dst_port = tcp_header->dest;
+    pkt->ack = tcp_header -> ack ? ACK_YES : ACK_NO;
+    if (tcp_header->fin && tcp_header->urg && tcp_header->psh){ // xmas packet
+        pkt->action = NF_DROP;
+        return REASON_XMAS_PACKET;
+    }
+    return 0;
 }
 
-static void parse_udp_hdr(rule_t *rule, struct sk_buff *skb, char offset){
-    struct udphdr * trans_header = (struct udphdr *)(skb_transport_header(skb)+offset);
-    rule->src_port = trans_header->source;
-    rule->dst_port = trans_header->dest;
+static void parse_udp_hdr(rule_t *pkt, struct sk_buff *skb, char offset){
+    struct udphdr * udp_header = (struct udphdr *)(skb_transport_header(skb)+offset);
+    pkt->src_port = udp_header->source;
+    pkt->dst_port = udp_header->dest;
+}
+
+direction_t parse_direction(const struct net_device *in, const struct net_device *out){
+    if ((in && in->name == OUT_NET_DEVICE_NAME) ||
+        (out && out->name == IN_NET_DEVICE_NAME))
+        return DIRECTION_IN;
+    if ((in && in->name == IN_NET_DEVICE_NAME) ||
+        (out && out->name == OUT_NET_DEVICE_NAME))
+        return DIRECTION_OUT;
+    return DIRECTION_ANY;
 }
 
 /* the main filter logic - this function decide what packets are blocked and which are allowed */
@@ -34,9 +48,9 @@ static unsigned int filter(unsigned int hooknum,
                              const struct net_device *in,
                              const struct net_device *out,
                              int (*okfn)(struct sk_buff *)){
-    rule_t rule = {//we parse the packet into a rule which we compare to the rules table
-        .action = NF_ACCEPT,
-        .src_port = PORT_ANY,
+    rule_t pkt = {//we parse the packet into a rule which we compare to the rules table
+        .action = NF_ACCEPT, //default: accept
+        .src_port = PORT_ANY, //set this for protocols w/o ports
         .dst_port = PORT_ANY
     };
     char offset = 0;
@@ -51,35 +65,32 @@ static unsigned int filter(unsigned int hooknum,
     if (ntohs(skb->protocol) != ETH_P_IP){ //make sure we only handle ipv4 packets
         return NF_ACCEPT;
     }
-
-    parse_ip_hdr(&rule, skb);
+    pkt.direction = parse_direction(in, out);
+    parse_ip_hdr(&pkt, skb);
 #ifdef DEBUG
-    printk(KERN_DEBUG "ip packet, src: %d, dst: %d, protocol:%d\n", rule.src_ip, rule.dst_ip, rule.protocol);
+    printk(KERN_DEBUG "ip packet, src: %d, dst: %d, protocol:%d\n", pkt.src_ip, pkt.dst_ip, pkt.protocol);
 #endif
-    if (hooknum == NF_INET_PRE_ROUTING){ //incoming
-        rule.direction = DIRECTION_IN;
+    if (hooknum == NF_INET_PRE_ROUTING) // we need to offset the transport header
         offset = 20;
-    } else { //outgoing
-        rule.direction = DIRECTION_OUT;
-    }
 
-    switch (rule.protocol){
+    switch (pkt.protocol){
     case PROT_ICMP:
         break;
     case PROT_TCP:
-        parse_tcp_hdr(&rule, skb, offset);
+        reason = parse_tcp_hdr(&pkt, skb, offset); //check for xmas while parsing
         break;
     case PROT_UDP:
-        parse_udp_hdr(&rule, skb, offset);
+        parse_udp_hdr(&pkt, skb, offset);
         break;
     default:
-        rule.protocol = PROT_OTHER;
+        pkt.protocol = PROT_OTHER; //map any unknown protocols to other
     }
 
     //make decision
-    log_row(rule.protocol, rule.action, hooknum, rule.src_ip, rule.dst_ip,
-            rule.src_port, rule.dst_port, reason);
-    if (rule.action == NF_ACCEPT)
+    reason = reason || check_packet(&pkt); //only check if we didn't block yet
+    log_row(pkt.protocol, pkt.action, hooknum, pkt.src_ip, pkt.dst_ip,
+            pkt.src_port, pkt.dst_port, reason);
+    if (pkt.action == NF_ACCEPT)
         PASS_AND_RET;
     DROP_AND_RET;
 }

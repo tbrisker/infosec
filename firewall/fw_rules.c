@@ -12,6 +12,35 @@ char fw_active;
 static rule_t rule_list[MAX_RULES];
 static int rule_count;
 
+int check_rule(rule_t *packet, rule_t rule){
+    if (rule.protocol != packet.protocol)
+        return 0;
+    //check direction - can't just compare because of the "any" direction
+    if ((rule.direction == DIRECTION_OUT && packet.direction != DIRECTION_OUT) ||
+        (rule.direction == DIRECTION_IN  && packet.direction != DIRECTION_IN))
+        return 0;
+    // check if the ips match or fall in the rule's subnet
+    if ((ntohl(rule.src_ip) >> rule.src_prefix_size != ntohl(packet.src_ip) >> rule.src_prefix_size) ||
+        (ntohl(rule.dst_ip) >> rule.dst_prefix_size != ntohl(packet.dst_ip) >> rule.dst_prefix_size)
+        return 0;
+    if (packet.protocol == PROT_TCP && ((rule.ack == ACK_NO && packet.ack != ACK_NO) ||
+                                        (rule.ack == ACK_YES && packet.ack != ACK_YES)))
+        return 0;
+    packet.action = rule.action;
+    return 1;
+}
+
+reason_t check_packet(rule_t *packet){
+    int i, reason;
+    if (!fw_active)
+        return REASON_FW_INACTIVE;
+    for (i = 0; i < rule_count; ++i){
+        if (check_rule(packet, rule_list[i]))
+            return i;
+    }
+    return REASON_NO_MATCHING_RULE;
+}
+
 /* rules char device functions and handlers */
 static int major_number;
 static struct device *dev = NULL;
