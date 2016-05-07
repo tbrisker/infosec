@@ -33,11 +33,11 @@ static void parse_udp_hdr(rule_t *pkt, struct sk_buff *skb, char offset){
 }
 
 direction_t parse_direction(const struct net_device *in, const struct net_device *out){
-    if ((in && in->name == OUT_NET_DEVICE_NAME) ||
-        (out && out->name == IN_NET_DEVICE_NAME))
+    if ((in && !strcmp(in->name, OUT_NET_DEVICE_NAME)) ||
+        (out && !strcmp(out->name, IN_NET_DEVICE_NAME)))
         return DIRECTION_IN;
-    if ((in && in->name == IN_NET_DEVICE_NAME) ||
-        (out && out->name == OUT_NET_DEVICE_NAME))
+    if ((in && !strcmp(in->name, IN_NET_DEVICE_NAME)) ||
+        (out && !strcmp(out->name, OUT_NET_DEVICE_NAME)))
         return DIRECTION_OUT;
     return DIRECTION_ANY;
 }
