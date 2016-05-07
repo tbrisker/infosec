@@ -4,11 +4,11 @@ void print_log_row(log_row_t row){
     char src_ip[16], dst_ip[16]; // max ip length: 4*3+3*1=15
     inet_ntop(AF_INET, &row.src_ip, src_ip, 16);
     inet_ntop(AF_INET, &row.dst_ip, dst_ip, 16);
-    printf("%s\t%-15s\t%-15s\t%hu\t\t%hu\t\t%s\t\t%hhu\t%s\t%hu\t%u\n",
+    printf("%s\t%-15s\t%-15s\t%-9hu%-9hu%-9s%-8hhu%-7s%-24s%u\n",
            time_to_s(row.timestamp), src_ip, dst_ip,
            ntohs(row.src_port), ntohs(row.dst_port),
            prot_to_s(row.protocol), row.hooknum, action_to_s(row.action),
-           row.reason, row.count);
+           reason_to_s(row.reason), row.count);
 }
 
 void show_log(void){
@@ -18,7 +18,7 @@ void show_log(void){
         perror("Error opening file");
         return;
     }
-    printf("timestamp\t\tsrc_ip\t\tdst_ip\t\tsrc_port\tdst_port\tprotocol\thooknum\taction\treason\tcount\n");
+    printf("timestamp\t\tsrc_ip\t\tdst_ip\t\tsrc_port dst_port protocol hooknum action reason\t\t  count\n");
     log_row_t row;
     while (read(fd, &row, sizeof(log_row_t)) == sizeof(log_row_t)) {
         print_log_row(row);
@@ -133,7 +133,7 @@ void write_rules(rule_t rules[], int count){
         perror("Error opening file");
         return;
     }
-    if (write(fd, rules, RULE_SIZE*count) != 1){
+    if (write(fd, rules, RULE_SIZE*count) != RULE_SIZE*count){
         perror("Error writing file");
     }
     close(fd);
@@ -141,7 +141,7 @@ void write_rules(rule_t rules[], int count){
 
 void load_rules(const char * path){
     FILE *fp;
-    int count, i;
+    int count;
     rule_t rules[MAX_RULES];
 
     fp = fopen(path, "r");
@@ -155,17 +155,9 @@ void load_rules(const char * path){
 
     if (count > 0)
         write_rules(rules, count);
-    for (i = 0; i < count; ++i)
-        print_rule(rules[i]);
 }
 
 int main(int argc, char const *argv[]){
-    unsigned int ip;
-    int mask;
-    char str[] = "192.168.1.1/24";
-    mask = s_to_ip_and_mask(str, &ip);
-    printf("%d/%d\n", ip, mask);
-    printf("%s\n", ip_and_mask_to_s(ip, mask));
     if (argc > 3 || argc == 1){
         printf("Invalid number of arguments.\n");
         return -1;

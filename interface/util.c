@@ -181,20 +181,16 @@ char * ack_to_s(char ack){
 }
 
 char reason_str[5];
-char * reason_to_s(int reason){
+char * reason_to_s(reason_t reason){
     switch (reason){
     case REASON_FW_INACTIVE:
         return "REASON_FW_INACTIVE";
-        break;
     case REASON_NO_MATCHING_RULE:
         return "REASON_NO_MATCHING_RULE";
-        break;
     case REASON_XMAS_PACKET:
         return "REASON_XMAS_PACKET";
-        break;
     case REASON_ILLEGAL_VALUE:
         return "REASON_ILLEGAL_VALUE";
-        break;
     default:
         snprintf(reason_str, 5, "%d", reason);
     }
