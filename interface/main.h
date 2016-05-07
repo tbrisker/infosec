@@ -49,7 +49,9 @@ typedef enum {
 #define PORT_ANY        (0)
 #define PORT_ABOVE_1023 (1023)
 #define MAX_RULES       (50)
+
 #define RULE_SIZE sizeof(rule_t)
+#define FORMATTED_RULE_SIZE 100 //100 is enough for a formatted rule
 
 //netfilter values
 #define NF_DROP 0
@@ -80,7 +82,7 @@ typedef struct {
     char           dst_prefix_size;    // as above
     unsigned short src_port;           // number of port or 0 for any or port 1023 for any port number > 1023
     unsigned short dst_port;           // number of port or 0 for any or port 1023 for any port number > 1023
-    char           protocol;           // values from: prot_t
+    unsigned char  protocol;           // values from: prot_t
     ack_t          ack;                // values from: ack_t
     char           action;             // valid values: NF_ACCEPT, NF_DROP
 } rule_t;
