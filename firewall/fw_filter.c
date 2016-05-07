@@ -87,7 +87,7 @@ static unsigned int filter(unsigned int hooknum,
     }
 
     //make decision
-    reason = reason || check_packet(&pkt); //only check if we didn't block yet
+    reason = reason ? reason : check_packet(&pkt); //only check if we didn't block yet
     log_row(pkt.protocol, pkt.action, hooknum, pkt.src_ip, pkt.dst_ip,
             pkt.src_port, pkt.dst_port, reason);
     if (pkt.action == NF_ACCEPT)

@@ -13,16 +13,27 @@ static rule_t rule_list[MAX_RULES];
 static int rule_count;
 
 static int check_rule(rule_t *packet, rule_t rule){
-    if (rule.protocol != packet->protocol)
+    if (rule.protocol != PROT_ANY && rule.protocol != packet->protocol)
         return 0;
-    //check direction - can't just compare because of the "any" direction
-    if ((rule.direction == DIRECTION_OUT && packet->direction != DIRECTION_OUT) ||
-        (rule.direction == DIRECTION_IN  && packet->direction != DIRECTION_IN))
+    if (rule.direction != DIRECTION_ANY && rule.direction != packet->direction)
         return 0;
-    // check if the ips match or fall in the rule's subnet
-    if ((ntohl(rule.src_ip) >> rule.src_prefix_size != ntohl(packet->src_ip) >> rule.src_prefix_size) ||
-        (ntohl(rule.dst_ip) >> rule.dst_prefix_size != ntohl(packet->dst_ip) >> rule.dst_prefix_size))
+
+    if (rule.src_ip != 0 &&
+        (ntohl(rule.src_ip) >> rule.src_prefix_size !=
+            ntohl(packet->src_ip) >> rule.src_prefix_size))
         return 0;
+    if (rule.dst_ip != 0 &&
+        (ntohl(rule.dst_ip) >> rule.dst_prefix_size !=
+            ntohl(packet->dst_ip) >> rule.dst_prefix_size))
+        return 0;
+
+    if ((rule.src_port != PORT_ANY && rule.src_port != PORT_ABOVE_1023 && rule.src_port != packet->src_port) ||
+        (rule.src_port == PORT_ABOVE_1023 && packet->src_port < PORT_ABOVE_1023))
+        return 0;
+    if ((rule.dst_port != PORT_ANY && rule.dst_port != PORT_ABOVE_1023 && rule.dst_port != packet->dst_port) ||
+        (rule.dst_port == PORT_ABOVE_1023 && packet->dst_port < PORT_ABOVE_1023))
+        return 0;
+
     if (packet->protocol == PROT_TCP && ((rule.ack == ACK_NO && packet->ack != ACK_NO) ||
                                         (rule.ack == ACK_YES && packet->ack != ACK_YES)))
         return 0;
