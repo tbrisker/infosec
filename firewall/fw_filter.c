@@ -49,7 +49,7 @@ static unsigned int filter(unsigned int hooknum,
                              const struct net_device *out,
                              int (*okfn)(struct sk_buff *)){
     rule_t pkt = {//we parse the packet into a rule which we compare to the rules table
-        .action = NF_ACCEPT, //default: accept
+        .action = DEFAULT_ACTION, //default: accept
         .src_port = PORT_ANY, //set this for protocols w/o ports
         .dst_port = PORT_ANY
     };

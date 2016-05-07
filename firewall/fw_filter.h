@@ -27,6 +27,8 @@
 #define IN_NET_DEVICE_NAME          "eth1"
 #define OUT_NET_DEVICE_NAME         "eth2"
 
+#define DEFAULT_ACTION NF_ACCEPT
+
 /************************************
  * Firewall filter "public" methods *
  ************************************/
