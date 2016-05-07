@@ -48,13 +48,12 @@ typedef struct {
     __u8    action;             // valid values: NF_ACCEPT, NF_DROP
 } rule_t;
 
-extern char fw_active;
-
 #define RULE_SIZE sizeof(rule_t)
 /***********************************************
  * Firewall rules interface - "public" methods *
  ***********************************************/
 
+reason_t check_packet(rule_t *packet);
 int init_rules(void);
 void cleanup_rules(void);
 #endif

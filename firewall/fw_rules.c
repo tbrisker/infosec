@@ -7,31 +7,31 @@ MODULE_AUTHOR("Tomer Brisker");
 /*  Firewall rules interface  */
 /******************************/
 
-char fw_active;
+static char fw_active;
 
 static rule_t rule_list[MAX_RULES];
 static int rule_count;
 
-int check_rule(rule_t *packet, rule_t rule){
-    if (rule.protocol != packet.protocol)
+static int check_rule(rule_t *packet, rule_t rule){
+    if (rule.protocol != packet->protocol)
         return 0;
     //check direction - can't just compare because of the "any" direction
-    if ((rule.direction == DIRECTION_OUT && packet.direction != DIRECTION_OUT) ||
-        (rule.direction == DIRECTION_IN  && packet.direction != DIRECTION_IN))
+    if ((rule.direction == DIRECTION_OUT && packet->direction != DIRECTION_OUT) ||
+        (rule.direction == DIRECTION_IN  && packet->direction != DIRECTION_IN))
         return 0;
     // check if the ips match or fall in the rule's subnet
-    if ((ntohl(rule.src_ip) >> rule.src_prefix_size != ntohl(packet.src_ip) >> rule.src_prefix_size) ||
-        (ntohl(rule.dst_ip) >> rule.dst_prefix_size != ntohl(packet.dst_ip) >> rule.dst_prefix_size)
+    if ((ntohl(rule.src_ip) >> rule.src_prefix_size != ntohl(packet->src_ip) >> rule.src_prefix_size) ||
+        (ntohl(rule.dst_ip) >> rule.dst_prefix_size != ntohl(packet->dst_ip) >> rule.dst_prefix_size))
         return 0;
-    if (packet.protocol == PROT_TCP && ((rule.ack == ACK_NO && packet.ack != ACK_NO) ||
-                                        (rule.ack == ACK_YES && packet.ack != ACK_YES)))
+    if (packet->protocol == PROT_TCP && ((rule.ack == ACK_NO && packet->ack != ACK_NO) ||
+                                        (rule.ack == ACK_YES && packet->ack != ACK_YES)))
         return 0;
-    packet.action = rule.action;
+    packet->action = rule.action;
     return 1;
 }
 
 reason_t check_packet(rule_t *packet){
-    int i, reason;
+    int i;
     if (!fw_active)
         return REASON_FW_INACTIVE;
     for (i = 0; i < rule_count; ++i){
@@ -87,7 +87,8 @@ static ssize_t read_rules(struct file *filp, char *buff, size_t length, loff_t *
 }
 
 static ssize_t write_rules(struct file *filp, const char *buff, size_t length, loff_t *offp){
-    rule_t temp[MAX_RULES];
+    //static so it is placed in global memory, it is too large for a local variable.
+    static rule_t temp[MAX_RULES];
 
 #ifdef DEBUG
     printk(KERN_DEBUG "write rules, length: %d, size: %d\n", length, sizeof(rule_list));
@@ -108,7 +109,6 @@ static ssize_t write_rules(struct file *filp, const char *buff, size_t length, l
     rule_count = length / RULE_SIZE;
     return length;
 }
-
 
 static struct file_operations fops = {
     .owner = THIS_MODULE,
