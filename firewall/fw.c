@@ -53,9 +53,6 @@ static int __init firewall_init_function(void) {
         cleanup_firewall(2);
         return err;
     }
-#ifdef DEBUG
-    printk(KERN_DEBUG "stats interface initialized successfully!\n");
-#endif
     //init rules
     if ((err = init_rules())){
         PERR("rules interface init failed");

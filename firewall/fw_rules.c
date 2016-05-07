@@ -41,6 +41,31 @@ reason_t check_packet(rule_t *packet){
     return REASON_NO_MATCHING_RULE;
 }
 
+static int invalid_rule(rule_t rule){
+    if (rule.direction < DIRECTION_IN || rule.direction > DIRECTION_ANY ||
+        rule.src_prefix_size > 32 || rule.src_prefix_size < 0 ||
+        rule.dst_prefix_size > 32 || rule.dst_prefix_size < 0 ||
+        rule.src_port > PORT_ABOVE_1023 || rule.src_port < PORT_ANY ||
+        rule.dst_port > PORT_ABOVE_1023 || rule.dst_port < PORT_ANY ||
+        rule.ack < ACK_NO || rule.ack > ACK_ANY )
+        return -1;
+    if (rule.protocol != PROT_ICMP && rule.protocol != PROT_TCP &&
+        rule.protocol != PROT_UDP && rule.protocol != PROT_OTHER &&
+        rule.protocol != PROT_ANY)
+        return -1;
+    if (rule.action != NF_ACCEPT && rule.action != NF_DROP)
+        return -1;
+    return 0;
+}
+
+static int invalid_ruleset(rule_t ruleset[], int size){
+    int i;
+    for (i = 0; i < size; ++i)
+        if (invalid_rule(ruleset[i]))
+            return -1;
+    return 0;
+}
+
 /* rules char device functions and handlers */
 static int major_number;
 static struct device *dev = NULL;
@@ -62,7 +87,7 @@ static ssize_t read_rules(struct file *filp, char *buff, size_t length, loff_t *
 }
 
 static ssize_t write_rules(struct file *filp, const char *buff, size_t length, loff_t *offp){
-    rule_t temp[length / RULE_SIZE];
+    rule_t temp[MAX_RULES];
 
 #ifdef DEBUG
     printk(KERN_DEBUG "write rules, length: %d, size: %d\n", length, sizeof(rule_list));
@@ -73,12 +98,12 @@ static ssize_t write_rules(struct file *filp, const char *buff, size_t length, l
     if (length % RULE_SIZE != 0) { //bad size - only copy complete rules
         return -EINVAL;
     }
-    if (copy_from_user(temp, buff, length)){  // Send the data to the user through 'copy_to_user'
+    if (copy_from_user(temp, buff, length)){  // get the data from userspace
         return -EFAULT;
     }
-    // if (invalid_ruleset(temp)){ //make sure the rules are valid
-        // return -EINVAL;
-    // }
+    if (invalid_ruleset(temp, length / RULE_SIZE)){ //make sure the rules are valid
+        return -EINVAL;
+    }
     memcpy(rule_list, temp, length); //override the current list
     rule_count = length / RULE_SIZE;
     return length;
@@ -126,6 +151,7 @@ static struct device_attribute rule_attrs[]= {
 
 int init_rules(void){
     rule_count = 0;
+    fw_active = 0;
 #ifdef DEBUG
     printk(KERN_DEBUG "initializing up rules device\n");
 #endif
