@@ -48,31 +48,33 @@ char * time_to_s(long timestamp){
     return "Error";
 }
 
-char * prot_to_s(int protocol){
+char * prot_to_s(unsigned char protocol){
     switch (protocol){
     case PROT_ICMP:
-        return "icmp";
+        return "ICMP";
     case PROT_TCP:
-        return "tcp";
+        return "TCP";
     case PROT_UDP:
-        return "udp";
+        return "UDP";
+    case PROT_ANY:
+        return "any";
     default:
         return "other";
     }
 }
 
 int s_to_prot(char * str){
-    if (!strcmp(str, "icmp"))
+    if (!strcmp(str, "ICMP"))
         return PROT_ICMP;
-    if (!strcmp(str, "tcp"))
+    if (!strcmp(str, "TCP"))
         return PROT_TCP;
-    if (!strcmp(str, "udp"))
+    if (!strcmp(str, "UDP"))
         return PROT_UDP;
     if (!strcmp(str, "any"))
         return PROT_ANY;
     if (!strcmp(str, "other"))
         return PROT_OTHER;
-    printf("Invalid protocol %s!\n", str);
+    printf("Invalid protocol %s\n", str);
     return -1;
 }
 
@@ -85,7 +87,7 @@ int s_to_action(char * str){
         return NF_ACCEPT;
     if (!strcmp(str, "drop"))
         return NF_DROP;
-    printf("Invalid action %s!", str);
+    printf("Invalid action %s\n", str);
     return -1;
 }
 
@@ -113,7 +115,7 @@ int s_to_dir(char *str){
 }
 
 /* Convert a string to ip and mask */
-int s_to_ip_and_mask(char *str, int *ip){
+int s_to_ip_and_mask(char *str, unsigned int *ip){
     struct in_addr addr = {0};
     char *nps;
     int mask = 0;
@@ -139,9 +141,13 @@ int s_to_ip_and_mask(char *str, int *ip){
 }
 
 char ip_and_mask[20];
-char * ip_and_mask_to_s(int ip, int mask){
+char * ip_and_mask_to_s(unsigned int ip, int mask){
     struct in_addr addr = {ip};
     char mask_s[4];
+
+    if (ip == 0)
+        return "any";
+
     strcpy(ip_and_mask, inet_ntoa(addr));
     if (mask>0 && mask <=32){
         sprintf(mask_s, "/%d", mask);
@@ -150,7 +156,7 @@ char * ip_and_mask_to_s(int ip, int mask){
     return ip_and_mask;
 }
 
-char ack_to_chr(char *str){
+char s_to_ack(char *str){
     if (!strcmp(str, "yes"))
         return ACK_YES;
     if (!strcmp(str, "no"))
@@ -214,7 +220,7 @@ char * port_to_s(unsigned short port){
     case PORT_ABOVE_1023:
         return ">1023";
     default:
-        if (snprintf(port_s, 6, "%hu", port) == 1)
+        if (snprintf(port_s, 6, "%hu", port) > 0)
             return port_s;
     }
     return "ERR";
