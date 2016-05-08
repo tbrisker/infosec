@@ -32,7 +32,7 @@ static void parse_udp_hdr(rule_t *pkt, struct sk_buff *skb, char offset){
     pkt->dst_port = udp_header->dest;
 }
 
-direction_t parse_direction(const struct net_device *in, const struct net_device *out){
+static direction_t parse_direction(const struct net_device *in, const struct net_device *out){
     if ((in && !strcmp(in->name, OUT_NET_DEVICE_NAME)) ||
         (out && !strcmp(out->name, IN_NET_DEVICE_NAME)))
         return DIRECTION_IN;
@@ -86,6 +86,10 @@ static unsigned int filter(unsigned int hooknum,
         pkt.protocol = PROT_OTHER; //map any unknown protocols to other
     }
 
+    if (!fw_active){ //don't stop anything if inactive, just log
+        reason = REASON_FW_INACTIVE;
+        pkt.action = NF_ACCEPT;
+    }
     //make decision
     reason = reason ? reason : check_packet(&pkt); //only check if we didn't block yet
     log_row(pkt.protocol, pkt.action, hooknum, pkt.src_ip, pkt.dst_ip,

@@ -7,7 +7,7 @@ MODULE_AUTHOR("Tomer Brisker");
 /*  Firewall rules interface  */
 /******************************/
 
-static char fw_active;
+char fw_active;
 
 static rule_t rule_list[MAX_RULES];
 static int rule_count;
@@ -43,8 +43,7 @@ static int check_rule(rule_t *packet, rule_t rule){
 
 reason_t check_packet(rule_t *packet){
     int i;
-    if (!fw_active)
-        return REASON_FW_INACTIVE;
+
     for (i = 0; i < rule_count; ++i){
         if (check_rule(packet, rule_list[i]))
             return i;
