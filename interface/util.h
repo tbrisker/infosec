@@ -1,10 +1,12 @@
 #ifndef UTIL_H
 #define UTIL_H
 
+/* functions to ease simple file manipulation */
 int read_int(char * path);
-
 void write_char(char *path, const char *c);
 
+/* conversion functions of strings to internal representations and vice versa */
+/******************************************************************************/
 char * time_to_s(long timestamp);
 
 char * prot_to_s(unsigned char protocol);

@@ -6,8 +6,9 @@ MODULE_AUTHOR("Tomer Brisker");
 /************************
  * Firewall module core *
  ************************/
-struct class *sysfs_class = NULL;
+struct class *sysfs_class = NULL; // all devices will register under this class
 
+/* register the base sysfs class */
 static int init_sysfs_class(void){
     sysfs_class = class_create(THIS_MODULE, CLASS_NAME);
     if (IS_ERR(sysfs_class)) {
@@ -19,6 +20,9 @@ static int init_sysfs_class(void){
     return 0;
 }
 
+/* cleanup all modules, in order of registration.
+ * step parameter can be used to do partial cleanup (in case of failure in init)
+ */
 static void cleanup_firewall(int step){
     switch (step){
     case 5:
@@ -34,6 +38,7 @@ static void cleanup_firewall(int step){
     }
 }
 
+/* Load all firewall modules in order */
 static int __init firewall_init_function(void) {
     int err = 0;
     if ((err = init_sysfs_class())){
@@ -71,7 +76,7 @@ static int __init firewall_init_function(void) {
     return 0;
 }
 
-
+/* cleanup all modules */
 static void __exit firewall_exit_function(void) {
     cleanup_firewall(5);
 }

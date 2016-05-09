@@ -11,7 +11,7 @@ typedef enum {
     REASON_ILLEGAL_VALUE         = -6,
 } reason_t;
 
-// logging
+// log row
 typedef struct {
     unsigned long    timestamp;      // time of creation/update
     unsigned char    protocol;       // values from: prot_t
@@ -25,17 +25,20 @@ typedef struct {
     unsigned int     count;          // counts this line's hits
     struct list_head list;           // the log is a linked list of rows
 } log_row_t;
-//we don't want to pass the list_head part to the user, ignore it in the row size
+//we don't want to pass the list_head part to the user (as it may leak kernel memory addresses), ignore it in the row size
 #define ROW_SIZE (sizeof(log_row_t) - sizeof(struct list_head))
 
 /*********************************************
  * Firewall log interface - "public" methods *
  *********************************************/
 
+/* Add a row to the log with the given parameters - or update a similar row */
 int log_row(unsigned char protocol, unsigned char action, unsigned char hooknum,
             __be32 src_ip, __be32 dst_ip, __be16 src_port, __be16 dst_port,
             reason_t reason);
+/* log module initialization */
 int init_log(void);
+/* log module cleanup */
 void cleanup_log(void);
 
 #endif

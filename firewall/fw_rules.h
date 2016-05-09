@@ -45,14 +45,17 @@ typedef struct {
     __u8    action;             // valid values: NF_ACCEPT, NF_DROP
 } rule_t;
 
-extern char fw_active;
+extern char fw_active; //extern so other modules can see the fw activation state
 
 #define RULE_SIZE sizeof(rule_t)
 /***********************************************
  * Firewall rules interface - "public" methods *
  ***********************************************/
 
+/* compares the packet against the rule list */
 reason_t check_packet(rule_t *packet);
+/* module init */
 int init_rules(void);
+/* module cleanup */
 void cleanup_rules(void);
 #endif
