@@ -1,16 +1,24 @@
 #include "main.h"
 
+/* print a log row in a user-readable manner */
 void print_log_row(log_row_t row){
     char src_ip[16], dst_ip[16]; // max ip length: 4*3+3*1=15
-    inet_ntop(AF_INET, &row.src_ip, src_ip, 16);
+    inet_ntop(AF_INET, &row.src_ip, src_ip, 16); //convert the ips to strings
     inet_ntop(AF_INET, &row.dst_ip, dst_ip, 16);
     printf("%s\t%-15s\t%-15s\t%-9hu%-9hu%-9s%-8hhu%-7s%-24s%u\n",
-           time_to_s(row.timestamp), src_ip, dst_ip,
-           ntohs(row.src_port), ntohs(row.dst_port),
-           prot_to_s(row.protocol), row.hooknum, action_to_s(row.action),
-           reason_to_s(row.reason), row.count);
+        time_to_s(row.timestamp),
+        src_ip,
+        dst_ip,
+        ntohs(row.src_port),
+        ntohs(row.dst_port),
+        prot_to_s(row.protocol),
+        row.hooknum,
+        action_to_s(row.action),
+        reason_to_s(row.reason),
+        row.count);
 }
 
+/* show the fw log */
 void show_log(void){
     int fd;
     fd = open(DEV_PATH("log"), O_RDONLY);
@@ -20,17 +28,17 @@ void show_log(void){
     }
     printf("timestamp\t\tsrc_ip\t\tdst_ip\t\tsrc_port dst_port protocol hooknum action reason\t\t  count\n");
     log_row_t row;
-    while (read(fd, &row, sizeof(log_row_t)) == sizeof(log_row_t)) {
+    while (read(fd, &row, sizeof(log_row_t)) == sizeof(log_row_t)) { //read the log row by row and print them
         print_log_row(row);
     }
     close(fd);
 }
-// loopback any 127.0.0.1/8 127.0.0.1/8 any any any any accept
-//telnet2 in any 10.0.1.1/24 TCP 23 >1023 yes accept
 
+/* print a rule in user-readable format */
 void print_rule(rule_t rule){
     printf("%s %s %s %s %s %s %s %s %s\n",
-        rule.rule_name, dir_to_s(rule.direction),
+        rule.rule_name,
+        dir_to_s(rule.direction),
         ip_and_mask_to_s(rule.src_ip, rule.src_prefix_size),
         ip_and_mask_to_s(rule.dst_ip, rule.dst_prefix_size),
         prot_to_s(rule.protocol),
@@ -40,6 +48,7 @@ void print_rule(rule_t rule){
         action_to_s(rule.action));
 }
 
+/* show all rules from the char device to the user */
 void show_rules(){
     int fd, i, count;
     rule_t rules[MAX_RULES];
@@ -48,17 +57,18 @@ void show_rules(){
         perror("Error opening file");
         return;
     }
-    count = read(fd, rules, RULE_SIZE*MAX_RULES);
+    count = read(fd, rules, RULE_SIZE*MAX_RULES); // read up to the maximum size
     close(fd);
     if (count < 0){
         perror("Error reading file");
         return;
     }
-    count = count / RULE_SIZE;
+    count = count / RULE_SIZE; //only print the rules that were returned
     for (i = 0; i < count; ++i)
         print_rule(rules[i]);
 }
 
+/* parse a user provided rule to a rule_t, or return -1 on invalid value */
 int parse_rule(char *str, rule_t *rule){
     char *tok;
     int tmp;
@@ -103,7 +113,7 @@ int parse_rule(char *str, rule_t *rule){
     if (rule->ack == -1)
         return -1;
 
-    tok = strtok(NULL, "\r\n"); //this should be the end of the line
+    tok = strtok(NULL, "\r\n"); //this should be the end of the line - remove any line breaks
     rule->action = s_to_action(tok);
     if (rule->action == -1)
         return -1;
@@ -111,7 +121,7 @@ int parse_rule(char *str, rule_t *rule){
     return 0;
 }
 
-//parse the rule file line by line
+/* parse the rule file line by line */
 int parse_rules(FILE *fp, rule_t rules[]){
     char buf[FORMATTED_RULE_SIZE];
     int count = 0;
@@ -126,6 +136,7 @@ int parse_rules(FILE *fp, rule_t rules[]){
     return count;
 }
 
+/* write a rule list to the char device */
 void write_rules(rule_t rules[], int count){
     int fd;
     fd = open(DEV_PATH("rules"), O_WRONLY);
@@ -138,7 +149,7 @@ void write_rules(rule_t rules[], int count){
     }
     close(fd);
 }
-
+/* load rules from a file and write them to the char device */
 void load_rules(const char * path){
     FILE *fp;
     int count;

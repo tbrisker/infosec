@@ -83,7 +83,7 @@ typedef struct {
 } rule_t;
 
 #define RULE_SIZE sizeof(rule_t)
-#define FORMATTED_RULE_SIZE 100 //100 is enough for a formatted rule
+#define FORMATTED_RULE_SIZE 100 //100 is enough for a formatted rule taking in account maximum field lengths
 
 // logging
 typedef struct {

@@ -3,14 +3,15 @@
 MODULE_LICENSE("GPL");
 MODULE_AUTHOR("Tomer Brisker");
 
-
 /* Packet counters */
 unsigned int p_total, p_block, p_pass;
 
+/* reset all packet counts to 0 */
 static void reset_counters(void){
     p_total = p_block = p_pass = 0;
 }
 
+/* get a counter by the first letter of the counter name */
 static int get_counter(char id){
     switch (id){
         case 't': //total

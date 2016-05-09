@@ -1,10 +1,11 @@
 #include "fw.h"
 
-/* These two methods are copied from drivers/base/core.c, so that our module
+/* The two following methods are copied from drivers/base/core.c, so that our module
  * can easily add and remove a list of attributes to a device instead of
  * doing it one attribute at a time.
  */
 
+/* add a list of sysfs attributes to the device and clean up if any fails */
 static int device_add_attributes(struct device *dev,
                  struct device_attribute *attrs)
 {
@@ -24,6 +25,7 @@ static int device_add_attributes(struct device *dev,
     return error;
 }
 
+/* remove a list of attributes from the device */
 static void device_remove_attributes(struct device *dev,
                      struct device_attribute *attrs)
 {
@@ -34,7 +36,7 @@ static void device_remove_attributes(struct device *dev,
             device_remove_file(dev, &attrs[i]);
 }
 
-
+/* create a sysfs and char device using the given parameters under our sysfs class */
 int safe_device_init(const char *name, const struct file_operations *fops,
                      struct device *dev, struct device_attribute *attrs){
     //register the device
@@ -69,6 +71,7 @@ int safe_device_init(const char *name, const struct file_operations *fops,
     return major_number;
 }
 
+/* clean up a device from the system, using steps to allow cleanup during init */
 void safe_device_cleanup(int major_number, int step, struct device *dev,
                          struct device_attribute *attrs){
     switch (step){

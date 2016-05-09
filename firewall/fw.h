@@ -23,5 +23,5 @@
 #define DEVICE_NAME_CONN_TAB		"conn_tab"
 #define CLASS_NAME					"fw"
 
-extern struct class *sysfs_class; //we register all devices under a single class
+extern struct class *sysfs_class; //shared class for all modules
 #endif // _FW_H_

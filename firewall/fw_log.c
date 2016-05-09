@@ -3,13 +3,15 @@
 MODULE_LICENSE("GPL");
 MODULE_AUTHOR("Tomer Brisker");
 
+/***********************
+ * Firewall log module *
+ ***********************/
 
 /* Internal log representation and helper functions */
+/****************************************************/
 
-/* init the list representing the log */
-static LIST_HEAD(log_list);
-static struct list_head *cur_row; //used for iterating the list for read
-static unsigned int log_size;
+static LIST_HEAD(log_list); // init the list representing the log
+static unsigned int log_size; //number of rows logged
 
 /* Compare two log rows to see if they can be combined */
 static int compare_rows(log_row_t first, log_row_t second){
@@ -36,11 +38,11 @@ static log_row_t * find_row(log_row_t * row){
 /* Add a log_row_t entry to the log or update an existing similar one */
 static void add_row(log_row_t * new_row){
     log_row_t * old_row = find_row(new_row);
-    if (old_row){ //A similar row already exists
+    if (old_row){ // A similar row already exists - combine the records
         old_row->timestamp = new_row->timestamp;
         old_row->count++;
         kfree(new_row); //no need to save the row, free the memory
-    } else { //this is the first time we have such a row, add it to the list.
+    } else { // this is the first time we have such a row, add it to the list.
         new_row->count = 1;
         ++log_size;
         list_add_tail(&new_row->list, &log_list);
@@ -53,7 +55,6 @@ int log_row(unsigned char protocol, unsigned char action, unsigned char hooknum,
             __be32 src_ip, __be32 dst_ip, __be16 src_port, __be16 dst_port,
             reason_t reason){
     log_row_t * row = kmalloc(sizeof(log_row_t), GFP_ATOMIC);
-    memset(row, 0, sizeof(log_row_t));
     if (!row){
         printk(KERN_ERR "Error allocating memory for log row.\n");
         return -ENOMEM;
@@ -73,23 +74,25 @@ int log_row(unsigned char protocol, unsigned char action, unsigned char hooknum,
 
 static void clear_log(void){
     log_row_t *cur, *tmp;
-    cur_row = &log_list; // prevent reads while deleting the list
+    log_size = 0; //this prevent reads while deleting the list - this is a stopping condition for read_log
     list_for_each_entry_safe(cur, tmp, &log_list, list){
         list_del(&cur->list);
         kfree(cur);
     }
-    log_size = 0;
 }
 
 /* log char device functions and handlers */
+/******************************************/
+
 static int major_number;
 static struct device *dev = NULL;
+static struct list_head *cur_row; // used for iterating the list during read
 
 static int open_log(struct inode *_inode, struct file *_file){
 #ifdef DEBUG
     printk(KERN_DEBUG "opened log\n");
 #endif
-    cur_row = log_list.next;
+    cur_row = log_list.next; //reset the pointer to the first row
     return 0;
 }
 
@@ -117,10 +120,14 @@ static struct file_operations fops = {
 };
 
 /* log sysfs functions and attributes */
+/**************************************/
+
+/* sysfs attribute to return the log size */
 static ssize_t show_size(struct device *dev, struct device_attribute *attr, char *buf){
     return scnprintf(buf, PAGE_SIZE, "%u\n", log_size);
 }
 
+/* sysfs attribute to clear the log when any character is written to it */
 static ssize_t sysfs_clear(struct device *dev, struct device_attribute *attr, const char *buf, size_t count){
     char temp;
     if (sscanf(buf, "%1c", &temp) == 1){
@@ -129,13 +136,18 @@ static ssize_t sysfs_clear(struct device *dev, struct device_attribute *attr, co
     return count;
 }
 
+/* sysfs attributes */
 static struct device_attribute log_attrs[]= {
         __ATTR(log_size, S_IRUSR, show_size, NULL),
         __ATTR(log_clear, S_IWUSR, NULL, sysfs_clear),
         __ATTR_NULL // stopping condition for loop in device_add_attributes()
     };
 
+/* Initialize the log module */
 int init_log(void) {
+#ifdef DEBUG
+    printk(KERN_DEBUG "Initializing log device\n");
+#endif
     log_size = 0;
     major_number = safe_device_init(DEVICE_NAME_LOG, &fops, dev, log_attrs);
     // Since we use safe_device_init, in case of failure all cleanup will be
@@ -147,5 +159,6 @@ void cleanup_log(void){
 #ifdef DEBUG
     printk(KERN_DEBUG "Cleaning up log device\n");
 #endif
+    clear_log(); //release the used memory
     safe_device_cleanup(major_number, 3, dev, log_attrs);
 }

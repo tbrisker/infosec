@@ -40,6 +40,7 @@ void write_char(char *path, const char *c){
 /* Conversion utils */
 /********************/
 
+/* return a string representing the timestamp */
 char time_str[21];
 char * time_to_s(long timestamp){
     struct tm* parsed = localtime(&timestamp);
@@ -48,6 +49,7 @@ char * time_to_s(long timestamp){
     return "Error";
 }
 
+/* convert protocol number to string */
 char * prot_to_s(unsigned char protocol){
     switch (protocol){
     case PROT_ICMP:
@@ -63,6 +65,7 @@ char * prot_to_s(unsigned char protocol){
     }
 }
 
+/* convert protocol string to number */
 int s_to_prot(char * str){
     if (!strcmp(str, "ICMP"))
         return PROT_ICMP;
@@ -78,10 +81,12 @@ int s_to_prot(char * str){
     return -1;
 }
 
+/* convert netfilter action to string */
 char * action_to_s(char action){
     return action ? "accept" : "drop";
 }
 
+/* convert string to netfilter action */
 int s_to_action(char * str){
     if (!strcmp(str, "accept"))
         return NF_ACCEPT;
@@ -91,6 +96,7 @@ int s_to_action(char * str){
     return -1;
 }
 
+/* convert direction number to string */
 char * dir_to_s(int dir){
     switch(dir){
     case DIRECTION_IN:
@@ -103,6 +109,7 @@ char * dir_to_s(int dir){
     return "ERR";
 }
 
+/* convert direction string to number */
 int s_to_dir(char *str){
     if (!strcmp(str, "in"))
         return DIRECTION_IN;
@@ -114,7 +121,8 @@ int s_to_dir(char *str){
     return -1;
 }
 
-/* Convert a string to ip and mask */
+/* Convert a string to ip and mask size */
+/* returns the mask size or -1 on error */
 int s_to_ip_and_mask(char *str, unsigned int *ip){
     struct in_addr addr = {0};
     char *nps;
@@ -140,22 +148,24 @@ int s_to_ip_and_mask(char *str, unsigned int *ip){
     return mask;
 }
 
+/* convert an ip and mask to nice string representation */
 char ip_and_mask[20];
 char * ip_and_mask_to_s(unsigned int ip, int mask){
     struct in_addr addr = {ip};
     char mask_s[4];
 
-    if (ip == 0)
+    if ((ip == 0) || (mask == 0))
         return "any";
 
     strcpy(ip_and_mask, inet_ntoa(addr));
-    if (mask>0 && mask <=32){
+    if (mask>0 && mask <32){
         sprintf(mask_s, "/%d", mask);
         strcat(ip_and_mask, mask_s);
     }
     return ip_and_mask;
 }
 
+/* convert string to ack number */
 char s_to_ack(char *str){
     if (!strcmp(str, "yes"))
         return ACK_YES;
@@ -167,6 +177,7 @@ char s_to_ack(char *str){
     return -1;
 }
 
+/* convert ack number to string */
 char * ack_to_s(char ack){
     switch(ack){
     case ACK_YES:
@@ -180,6 +191,7 @@ char * ack_to_s(char ack){
     }
 }
 
+/* convert reason to string */
 char reason_str[5];
 char * reason_to_s(reason_t reason){
     switch (reason){
@@ -197,6 +209,7 @@ char * reason_to_s(reason_t reason){
     return reason_str;
 }
 
+/* convert string to port number */
 int s_to_port(char *str){
     unsigned short port;
     if (!strcmp(str, "any"))
@@ -208,6 +221,7 @@ int s_to_port(char *str){
     return -1;
 }
 
+/* convert port number to string */
 char port_s[6];
 char * port_to_s(unsigned short port){
     switch (port){

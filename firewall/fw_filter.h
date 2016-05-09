@@ -3,6 +3,7 @@
 
 #define NUM_HOOKS 2
 
+// Macro to define a hook and connect it to the filter function
 #define HOOK_INIT(_number) {     \
     .hook     = &filter,         \
     .pf       = PF_INET,         \
@@ -11,6 +12,7 @@
     .owner    = THIS_MODULE      \
 }
 
+//macros for printing and returning routing decisions
 #define DROP_AND_RET { \
     printk(KERN_INFO "*** packet blocked ***\n"); \
     ++p_block; \
@@ -27,6 +29,7 @@
 #define IN_NET_DEVICE_NAME          "eth1"
 #define OUT_NET_DEVICE_NAME         "eth2"
 
+//default action for packets not matching any rule when firewall is active
 #define DEFAULT_ACTION NF_ACCEPT
 
 /************************************
