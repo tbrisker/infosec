@@ -31,6 +31,7 @@ typedef struct {
 /*********************************************
  * Firewall log interface - "public" methods *
  *********************************************/
+
 int log_row(unsigned char protocol, unsigned char action, unsigned char hooknum,
             __be32 src_ip, __be32 dst_ip, __be16 src_port, __be16 dst_port,
             reason_t reason);

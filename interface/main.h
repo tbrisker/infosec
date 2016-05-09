@@ -50,8 +50,6 @@ typedef enum {
 #define PORT_ABOVE_1023 (1023)
 #define MAX_RULES       (50)
 
-#define RULE_SIZE sizeof(rule_t)
-#define FORMATTED_RULE_SIZE 100 //100 is enough for a formatted rule
 
 //netfilter values
 #define NF_DROP 0
@@ -74,11 +72,8 @@ typedef struct {
     char           rule_name[20];         // names will be no longer than 20 chars
     direction_t    direction;
     unsigned int   src_ip;
-    unsigned int   src_prefix_mask;    // e.g., 255.255.255.0 as int in the local endianness
     char           src_prefix_size;    // valid values: 0-32, e.g., /24 for the example above
-                                // (the field is redundant - easier to print)
     unsigned int   dst_ip;
-    unsigned int   dst_prefix_mask;    // as above
     char           dst_prefix_size;    // as above
     unsigned short src_port;           // number of port or 0 for any or port 1023 for any port number > 1023
     unsigned short dst_port;           // number of port or 0 for any or port 1023 for any port number > 1023
@@ -86,6 +81,9 @@ typedef struct {
     ack_t          ack;                // values from: ack_t
     char           action;             // valid values: NF_ACCEPT, NF_DROP
 } rule_t;
+
+#define RULE_SIZE sizeof(rule_t)
+#define FORMATTED_RULE_SIZE 100 //100 is enough for a formatted rule
 
 // logging
 typedef struct {

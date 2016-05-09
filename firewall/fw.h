@@ -23,11 +23,5 @@
 #define DEVICE_NAME_CONN_TAB		"conn_tab"
 #define CLASS_NAME					"fw"
 
-// device minor numbers, for your convenience
-typedef enum {
-	MINOR_RULES    = 0,
-	MINOR_LOG      = 1,
-} minor_t;
-
 extern struct class *sysfs_class; //we register all devices under a single class
 #endif // _FW_H_
