@@ -12,31 +12,34 @@ char fw_active;
 static rule_t rule_list[MAX_RULES];
 static int rule_count;
 
+// returns true if packet_ip is not in the network defined by rule_ip/nps
+static int check_rule_ip(__be32 rule_ip, __be32 packet_ip, __u8 nps){
+    return (rule_ip != 0 && nps != 0 && //ip or prefix == 0 -> any
+            (ntohl(rule_ip) >> (32 - nps) != ntohl(packet_ip) >> (32 - nps)));
+}
+
+// returns true if packet port does not match the rule port
+static int check_rule_port(__be32 rule_port, __be32 packet_port){
+    return ((rule_port != PORT_ANY && rule_port != PORT_ABOVE_1023 && rule_port != packet_port) ||
+            (rule_port == PORT_ABOVE_1023 && packet_port < PORT_ABOVE_1023));
+}
+
 static int check_rule(rule_t *packet, rule_t rule){
     if (rule.protocol != PROT_ANY && rule.protocol != packet->protocol)
         return 0;
     if (rule.direction != DIRECTION_ANY && rule.direction != packet->direction)
         return 0;
 
-    if (rule.src_ip != 0 &&
-        (ntohl(rule.src_ip) >> rule.src_prefix_size !=
-            ntohl(packet->src_ip) >> rule.src_prefix_size))
+    if (check_rule_ip(rule.src_ip, packet->src_ip, rule.src_prefix_size) ||
+        check_rule_ip(rule.dst_ip, packet->dst_ip, rule.dst_prefix_size))
         return 0;
-    if (rule.dst_ip != 0 &&
-        (ntohl(rule.dst_ip) >> rule.dst_prefix_size !=
-            ntohl(packet->dst_ip) >> rule.dst_prefix_size))
+    if (check_rule_port(rule.src_port, packet->src_port) ||
+        check_rule_port(rule.dst_port, packet->dst_port))
         return 0;
 
-    if ((rule.src_port != PORT_ANY && rule.src_port != PORT_ABOVE_1023 && rule.src_port != packet->src_port) ||
-        (rule.src_port == PORT_ABOVE_1023 && packet->src_port < PORT_ABOVE_1023))
+    if (packet->protocol == PROT_TCP && rule.ack != ACK_ANY && rule.ack != packet->ack)
         return 0;
-    if ((rule.dst_port != PORT_ANY && rule.dst_port != PORT_ABOVE_1023 && rule.dst_port != packet->dst_port) ||
-        (rule.dst_port == PORT_ABOVE_1023 && packet->dst_port < PORT_ABOVE_1023))
-        return 0;
-
-    if (packet->protocol == PROT_TCP && ((rule.ack == ACK_NO && packet->ack != ACK_NO) ||
-                                        (rule.ack == ACK_YES && packet->ack != ACK_YES)))
-        return 0;
+    //we have a match! set the action to the action defined by the rule.
     packet->action = rule.action;
     return 1;
 }
@@ -130,9 +133,11 @@ static struct file_operations fops = {
 static ssize_t show_size(struct device *dev, struct device_attribute *attr, char *buf){
     return scnprintf(buf, PAGE_SIZE, "%u\n", rule_count);
 }
+
 static ssize_t show_active(struct device *dev, struct device_attribute *attr, char *buf){
     return scnprintf(buf, PAGE_SIZE, "%u\n", fw_active);
 }
+
 static ssize_t set_active(struct device *dev, struct device_attribute *attr, const char *buf, size_t count){
     char temp;
     if (sscanf(buf, "%1c", &temp) == 1 && (temp == '0' || temp == '1')){

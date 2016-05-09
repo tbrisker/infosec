@@ -118,9 +118,9 @@ int s_to_dir(char *str){
 int s_to_ip_and_mask(char *str, unsigned int *ip){
     struct in_addr addr = {0};
     char *nps;
-    int mask = 0;
+    int mask = 32; //default to single host
     if (!strcmp(str, "any")){
-        *ip = 0; // 0.0.0.0 will be used to denote "any" ip as is common.
+        *ip = 0; // 0.0.0.0/0 will be used to denote "any" ip as is common.
         return 0;
     }
     nps = strchr(str, '/');
