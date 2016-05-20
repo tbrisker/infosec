@@ -14,13 +14,14 @@
 #include <linux/time.h>
 //include all our modules
 #include "fw_filter.h"
+#include "fw_conn_tab.h"
 #include "fw_stats.h"
 #include "fw_log.h"
 #include "fw_rules.h"
+#include "fw_hosts.h"
 #include "util.h"
 
 // auxiliary strings, for your convenience
-#define DEVICE_NAME_CONN_TAB		"conn_tab"
 #define CLASS_NAME					"fw"
 
 extern struct class *sysfs_class; //shared class for all modules

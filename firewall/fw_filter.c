@@ -33,12 +33,14 @@ static reason_t parse_tcp_hdr(rule_t *pkt, struct sk_buff *skb, char offset){
     struct tcphdr * tcp_header = (struct tcphdr *)(skb_transport_header(skb)+offset);;
     pkt->src_port = tcp_header->source;
     pkt->dst_port = tcp_header->dest;
-    pkt->ack = tcp_header -> ack ? ACK_YES : ACK_NO;
+    pkt->ack = tcp_header->ack ? ACK_YES : ACK_NO;
     // xmas packet - drop it
     if (tcp_header->fin && tcp_header->urg && tcp_header->psh){
         pkt->action = NF_DROP;
         return REASON_XMAS_PACKET;
     }
+    if (tcp_header -> ack || pkt->src_port == htons(20))
+        return check_conn_tab(pkt, tcp_header);
     return 0;
 }
 
@@ -104,8 +106,11 @@ static unsigned int filter(unsigned int hooknum,
     log_row(pkt.protocol, pkt.action, hooknum, pkt.src_ip, pkt.dst_ip,
             pkt.src_port, pkt.dst_port, reason);
     //print the decision to the kernel log, update counter and return decision.
-    if (pkt.action == NF_ACCEPT)
+    if (pkt.action == NF_ACCEPT){
+        if (pkt.protocol == PROT_TCP && pkt.ack == ACK_NO)
+            new_connection(pkt); // add a new connection to the connection tab
         PASS_AND_RET;
+    }
     DROP_AND_RET;
 }
 
