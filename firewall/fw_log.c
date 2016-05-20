@@ -159,6 +159,6 @@ void cleanup_log(void){
 #ifdef DEBUG
     printk(KERN_DEBUG "Cleaning up log device\n");
 #endif
-    clear_log(); //release the used memory
     safe_device_cleanup(major_number, 3, dev, log_attrs);
+    clear_log(); //release the used memory
 }

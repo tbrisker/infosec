@@ -186,10 +186,10 @@ static struct device_attribute rule_attrs[]= {
     };
 
 
-/* initiailize the rules module */
+/* initialize the rules module */
 int init_rules(void){
 #ifdef DEBUG
-    printk(KERN_DEBUG "initializing up rules device\n");
+    printk(KERN_DEBUG "initializing rules device\n");
 #endif
     rule_count = 0;
     fw_active = 0; // start as inactive until activated by user
