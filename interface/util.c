@@ -158,7 +158,7 @@ char * ip_and_mask_to_s(unsigned int ip, int mask){
         return "any";
 
     strcpy(ip_and_mask, inet_ntoa(addr));
-    if (mask>0 && mask <32){
+    if (mask>0 && mask<32){
         sprintf(mask_s, "/%d", mask);
         strcat(ip_and_mask, mask_s);
     }

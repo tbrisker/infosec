@@ -168,6 +168,31 @@ void load_rules(const char * path){
         write_rules(rules, count);
 }
 
+void print_con(connection con){
+    char src_ip[16], dst_ip[16]; // max ip length: 4*3+3*1=15
+    inet_ntop(AF_INET, &con.src_ip, src_ip, 16); //convert the ips to strings
+    inet_ntop(AF_INET, &con.dst_ip, dst_ip, 16);
+    printf("%-15s\t%hu\t\t%-15s\t%hu\t\t%u\t%lu\n",
+        src_ip, ntohs(con.src_port), dst_ip, ntohs(con.dst_port), con.src_state, con.timestamp);
+    printf("%-15s\t%hu\t\t%-15s\t%hu\t\t%u\n",
+        dst_ip, ntohs(con.dst_port), src_ip, ntohs(con.src_port), con.dst_state);
+}
+
+void show_conn_tab(void){
+    int fd;
+    connection con;
+    fd = open(DEV_PATH("conn_tab"), O_RDONLY);
+    if (fd<0){
+        perror("Error opening file");
+        return;
+    }
+    printf("src_ip\t\tsrc_port\tdst_ip\t\tdst_port\tstate\n");
+    while (read(fd, &con, sizeof(connection)) == sizeof(connection)) { //read the log con by con and print them
+        print_con(con);
+    }
+    close(fd);
+}
+
 int main(int argc, char const *argv[]){
     if (argc > 3 || argc == 1){
         printf("Invalid number of arguments.\n");
@@ -199,6 +224,10 @@ int main(int argc, char const *argv[]){
     }
     if (!strcmp(argv[1], "clear_log")){
         write_char(SYSFS_PATH("fw_log/log_clear"), "1");
+        return 0;
+    }
+    if (!strcmp(argv[1], "show_conn_tab")){
+        show_conn_tab();
         return 0;
     }
     printf("Invalid argument.\n");

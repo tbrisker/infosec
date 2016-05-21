@@ -5,12 +5,24 @@ MODULE_AUTHOR("Tomer Brisker");
 
 static LIST_HEAD(conn_table); // init the list representing the connection table
 
+static void del_con(connection * con){
+    list_del(&con->list);
+    kfree(con);
+}
+
 /* locate a connection in the connection table or return NULL if does not exist */
 static connection * find_connection(__be32 src_ip, __be16 src_port, __be32 dst_ip, __be16 dst_port){
-    connection *cur;
-    list_for_each_entry(cur, &conn_table, list){
-        if (cur->src_ip == src_ip && cur->src_port == src_port &&
-            cur->dst_ip == dst_ip && cur->dst_port == dst_port)
+    connection *cur, *tmp;
+    unsigned long expiry = get_seconds() - TIMEOUT; //timestamp for expiring old connections
+    list_for_each_entry_safe(cur, tmp, &conn_table, list){
+        if (cur->timestamp < expiry){
+            del_con(cur);
+            continue;
+        }
+        if ((cur->src_ip == src_ip && cur->src_port == src_port &&
+             cur->dst_ip == dst_ip && cur->dst_port == dst_port) ||
+            (cur->src_ip == dst_ip && cur->src_port == dst_port && //reverse direction - same connection
+             cur->dst_ip == src_ip && cur->dst_port == src_port))
             return cur;
     }
     return NULL;
@@ -18,40 +30,40 @@ static connection * find_connection(__be32 src_ip, __be16 src_port, __be32 dst_i
 
 /* check if a given connection is permitted in the connection table
  * and update the connection state if it changed.
- * Sets the action on the packet according to the decision and returns
- * the matching reason.
+ * Sets the action on the packet according to the decision.
  */
-int check_conn_tab(rule_t *pkt, struct tcphdr *tcp_header){
-
-    return 0;
+void check_conn_tab(rule_t *pkt, struct tcphdr *tcp_header){
+    connection *con;
+    con = find_connection(pkt->src_ip, pkt->src_port, pkt->dst_ip, pkt->dst_port);
+    if (NULL == con){ //non existing connection - drop the packet
+        pkt->action = NF_DROP;
+        return;
+    }
+    pkt->action = NF_ACCEPT;
+    return;
 }
 
 /* Add a new connection to the connection table */
 void new_connection(rule_t pkt){
-    connection *dir1 = kmalloc(sizeof(connection), GFP_ATOMIC);
-    if (!dir1){
+    connection *con = kmalloc(sizeof(connection), GFP_ATOMIC);
+    if (!con){
         printk(KERN_ERR "Error allocating memory for connection.\n");
         return;
     }
-    connection *dir2 = kmalloc(sizeof(connection), GFP_ATOMIC);
-    if (!dir2){
-        printk(KERN_ERR "Error allocating memory for connection.\n");
-        return;
-    }
-    dir1->timestamp = dir2->timestamp = get_seconds();
-    dir1->src_ip = dir2->dst_ip = pkt.src_ip;
-    dir1->src_port = dir2->dst_port = pkt.src_port;
-    dir2->src_ip = dir1->dst_ip = pkt.dst_ip;
-    dir2->src_port = dir1->dst_port = pkt.src_port;
-    dir1->state = SYN_SENT;
-    dir2->state = LISTEN;
+    con->timestamp = get_seconds();
+    con->src_ip    = pkt.src_ip;
+    con->src_port  = pkt.src_port;
+    con->dst_ip    = pkt.dst_ip;
+    con->dst_port  = pkt.dst_port;
+    con->src_state = C_SYN_SENT;
+    con->dst_state = C_LISTEN; //assume the server is listening - will timeout if not
+    list_add(&con->list, &conn_table);
 }
 
 static void clear_cons(void){
     connection *cur, *tmp;
     list_for_each_entry_safe(cur, tmp, &conn_table, list){
-        list_del(&cur->list);
-        kfree(cur);
+        del_con(cur);
     }
 }
 
@@ -71,16 +83,24 @@ static ssize_t read_cons(struct file *filp, char *buff, size_t length, loff_t *o
 #ifdef DEBUG
     printk(KERN_DEBUG "read log, length: %d, log size: %d, row size: %d\n", length, log_size, CONNECTION_SIZE);
 #endif
-    if (cur_con == &conn_table){ //the log is empty or we reached the end
+    unsigned long expiry = get_seconds() - TIMEOUT; //timestamp for expiring old connections
+    connection *tmp;
+    while (cur_con != &conn_table && list_entry(cur_con, connection, list)->timestamp < expiry){
+        tmp = list_entry(cur_con, connection, list);
+        cur_con = cur_con->next;
+        del_con(tmp);
+    }
+    if (cur_con == &conn_table){ //the table is empty or we reached the end
         return 0;
     }
     if (length < CONNECTION_SIZE){ // length must be at least CONNECTION_SIZE for read to work, we don't send partial rows.
         return -ENOMEM;
     }
+
     if (copy_to_user(buff, list_entry(cur_con, connection, list), CONNECTION_SIZE)){  // Send the data to the user through 'copy_to_user'
         return -EFAULT;
     }
-    cur_con = cur_con->next; //advance to the next row for the next read
+    cur_con = cur_con->next; //advance to the next connection for the next read
     return CONNECTION_SIZE;
 }
 

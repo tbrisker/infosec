@@ -25,8 +25,12 @@ static int init_sysfs_class(void){
  */
 static void cleanup_firewall(int step){
     switch (step){
-    case 5:
+    case 7:
         cleanup_filter();
+    // case 6:
+    //     cleanup_hosts();
+    case 5:
+        cleanup_conn_tab();
     case 4:
         cleanup_rules();
     case 3:
@@ -64,10 +68,22 @@ static int __init firewall_init_function(void) {
         cleanup_firewall(3);
         return err;
     }
+    //init conn_tab
+    if ((err = init_conn_tab())){
+        PERR("rules interface init failed");
+        cleanup_firewall(4);
+        return err;
+    }
+    //init rules
+    // if ((err = init_hosts())){
+    //     PERR("rules interface init failed");
+    //     cleanup_firewall(5);
+    //     return err;
+    // }
     //init filter
     if ((err = init_filter())){
         PERR("filter init failed");
-        cleanup_firewall(4);
+        cleanup_firewall(6);
         return err;
     }
 #ifdef DEBUG
@@ -78,7 +94,7 @@ static int __init firewall_init_function(void) {
 
 /* cleanup all modules */
 static void __exit firewall_exit_function(void) {
-    cleanup_firewall(5);
+    cleanup_firewall(7);
 }
 
 module_init(firewall_init_function);
