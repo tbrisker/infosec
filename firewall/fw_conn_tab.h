@@ -4,17 +4,17 @@
 #define DEVICE_NAME_CONN_TAB        "conn_tab"
 
 typedef enum {
-    CLOSED
-    LISTEN,
-    SYN_SENT,
-    SYN_RECEIVED,
-    ESTABLISHED,
-    CLOSE_WAIT,
-    LAST_ACK,
-    FIN_WAIT_1,
-    FIN_WAIT_2,
-    CLOSING,
-    TIME_WAIT,
+    C_CLOSED,
+    C_LISTEN,
+    C_SYN_SENT,
+    C_SYN_RECEIVED,
+    C_ESTABLISHED,
+    C_CLOSE_WAIT,
+    C_LAST_ACK,
+    C_FIN_WAIT_1,
+    C_FIN_WAIT_2,
+    C_CLOSING,
+    C_TIME_WAIT
 } conn_state;
 
 typedef struct {
@@ -22,14 +22,18 @@ typedef struct {
     __be16 src_port;
     __be32 dst_ip;
     __be16 dst_port;
-    conn_state state;
+    conn_state src_state; //the connection initiator will be src
+    conn_state dst_state;
     unsigned long timestamp; //last packet - for timeout calculation
     struct list_head list;
 } connection;
 
 #define CONNECTION_SIZE (sizeof(connection) - sizeof(struct list_head))
+#define TIMEOUT 25
 
-int check_conn_tab(rule_t *pkt, struct tcphdr *tcp_header);
+void check_conn_tab(rule_t *pkt, struct tcphdr *tcp_header);
 void new_connection(rule_t pkt);
+int init_conn_tab(void);
+void cleanup_conn_tab(void);
 
 #endif

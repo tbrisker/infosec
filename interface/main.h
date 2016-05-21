@@ -99,5 +99,27 @@ typedef struct {
     unsigned int    count;          // counts this line's hits
 } log_row_t;
 
+typedef enum {
+    C_CLOSED,
+    C_LISTEN,
+    C_SYN_SENT,
+    C_SYN_RECEIVED,
+    C_ESTABLISHED,
+    C_CLOSE_WAIT,
+    C_LAST_ACK,
+    C_FIN_WAIT_1,
+    C_FIN_WAIT_2,
+    C_CLOSING,
+    C_TIME_WAIT
+} conn_state;
 
+typedef struct {
+    unsigned long src_ip;
+    unsigned short src_port;
+    unsigned long dst_ip;
+    unsigned short dst_port;
+    conn_state src_state; //the connection initiator will be src
+    conn_state dst_state;
+    unsigned long timestamp; //last packet - for timeout calculation
+} connection;
 #endif

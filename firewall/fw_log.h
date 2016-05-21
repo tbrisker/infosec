@@ -9,6 +9,7 @@ typedef enum {
     REASON_NO_MATCHING_RULE      = -2,
     REASON_XMAS_PACKET           = -4,
     REASON_ILLEGAL_VALUE         = -6,
+    REASON_CONN_TAB              = -8
 } reason_t;
 
 // log row

@@ -30,7 +30,7 @@ static void parse_ip_hdr(rule_t *pkt, struct sk_buff *skb){
 /* Parse the packet's tcp header to get ports and check flags */
 /* returns REASON_XMAS_PACKET in case the packet matches the xmas pattern */
 static reason_t parse_tcp_hdr(rule_t *pkt, struct sk_buff *skb, char offset){
-    struct tcphdr * tcp_header = (struct tcphdr *)(skb_transport_header(skb)+offset);;
+    struct tcphdr *tcp_header = (struct tcphdr *)(skb_transport_header(skb)+offset);;
     pkt->src_port = tcp_header->source;
     pkt->dst_port = tcp_header->dest;
     pkt->ack = tcp_header->ack ? ACK_YES : ACK_NO;
@@ -39,14 +39,16 @@ static reason_t parse_tcp_hdr(rule_t *pkt, struct sk_buff *skb, char offset){
         pkt->action = NF_DROP;
         return REASON_XMAS_PACKET;
     }
-    if (tcp_header -> ack || pkt->src_port == htons(20))
-        return check_conn_tab(pkt, tcp_header);
+    if (fw_active && (tcp_header->ack || pkt->src_port == htons(20))){
+        check_conn_tab(pkt, tcp_header);
+        return REASON_CONN_TAB;
+    }
     return 0;
 }
 
 /* Parse the packet's udp header to get ports */
 static void parse_udp_hdr(rule_t *pkt, struct sk_buff *skb, char offset){
-    struct udphdr * udp_header = (struct udphdr *)(skb_transport_header(skb)+offset);
+    struct udphdr *udp_header = (struct udphdr *)(skb_transport_header(skb)+offset);
     pkt->src_port = udp_header->source;
     pkt->dst_port = udp_header->dest;
 }
