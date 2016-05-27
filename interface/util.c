@@ -203,6 +203,12 @@ char * reason_to_s(reason_t reason){
         return "REASON_XMAS_PACKET";
     case REASON_ILLEGAL_VALUE:
         return "REASON_ILLEGAL_VALUE";
+    case REASON_CONN_EXIST:
+        return "REASON_CONN_EXIST";
+    case REASON_CONN_NOT_EXIST:
+        return "REASON_CONN_NOT_EXIST";
+    case REASON_TCP_NON_COMPLIANT:
+        return "REASON_TCP_NON_COMPLIANT";
     default:
         snprintf(reason_str, 5, "%d", reason);
     }

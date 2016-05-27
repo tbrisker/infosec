@@ -57,10 +57,16 @@ reason_t check_conn_tab(rule_t *pkt, struct tcphdr *tcp_header){
         }
         // any packet that doesn't match the handshake protocol is invalid.
         pkt->action = NF_DROP;
+#ifdef DEBUG
+        printk(KERN_DEBUG "Dropped packet, invalid handshake\n");
+#endif
         return REASON_TCP_NON_COMPLIANT;
     }
     if (tcp_header->syn){ //syn is valid only during handshake, drop otherwise
         pkt->action = NF_DROP;
+#ifdef DEBUG
+        printk(KERN_DEBUG "Dropped packet, unexpected syn\n");
+#endif
         return REASON_TCP_NON_COMPLIANT;
     }
 
@@ -154,11 +160,11 @@ static int open_cons(struct inode *_inode, struct file *_file){
 }
 
 static ssize_t read_cons(struct file *filp, char *buff, size_t length, loff_t *offp){
-#ifdef DEBUG
-    printk(KERN_DEBUG "read log, length: %d, log size: %d, row size: %d\n", length, log_size, CONNECTION_SIZE);
-#endif
     unsigned long expiry = get_seconds() - TIMEOUT; //timestamp for expiring old connections
     connection *tmp;
+#ifdef DEBUG
+    printk(KERN_DEBUG "read cons, length: %d, row size: %d\n", length, CONNECTION_SIZE);
+#endif
     while (cur_con != &conn_table && list_entry(cur_con, connection, list)->timestamp < expiry){
         tmp = list_entry(cur_con, connection, list);
         cur_con = cur_con->next;

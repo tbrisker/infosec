@@ -35,6 +35,9 @@ typedef enum {
     REASON_NO_MATCHING_RULE      = -2,
     REASON_XMAS_PACKET           = -4,
     REASON_ILLEGAL_VALUE         = -6,
+    REASON_CONN_EXIST            = -8,
+    REASON_CONN_NOT_EXIST        = -9,
+    REASON_TCP_NON_COMPLIANT     = -10
 } reason_t;
 
 // auxiliary strings, for your convenience
