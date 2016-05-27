@@ -235,3 +235,31 @@ char * port_to_s(unsigned short port){
     }
     return "ERR";
 }
+
+char * state_to_s(conn_state state){
+    switch (state){
+    case C_CLOSED:
+        return "CLOSED";
+    case C_LISTEN:
+        return "LISTEN";
+    case C_SYN_SENT:
+        return "SYN_SENT";
+    case C_SYN_RECEIVED:
+        return "SYN_RECEIVED";
+    case C_ESTABLISHED:
+        return "ESTABLISHED";
+    case C_CLOSE_WAIT:
+        return "CLOSE_WAIT";
+    case C_LAST_ACK:
+        return "LAST_ACK";
+    case C_FIN_WAIT_1:
+        return "FIN_WAIT_1";
+    case C_FIN_WAIT_2:
+        return "FIN_WAIT_2";
+    case C_CLOSING:
+        return "CLOSING";
+    case C_TIME_WAIT:
+        return "TIME_WAIT";
+    }
+    return "ERR";
+}

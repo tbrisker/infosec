@@ -29,4 +29,6 @@ char * reason_to_s(int reason);
 int s_to_port(char *str);
 char * port_to_s(unsigned short port);
 
+char * state_to_s(conn_state state);
+
 #endif

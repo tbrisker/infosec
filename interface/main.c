@@ -172,10 +172,10 @@ void print_con(connection con){
     char src_ip[16], dst_ip[16]; // max ip length: 4*3+3*1=15
     inet_ntop(AF_INET, &con.src_ip, src_ip, 16); //convert the ips to strings
     inet_ntop(AF_INET, &con.dst_ip, dst_ip, 16);
-    printf("%-15s\t%hu\t\t%-15s\t%hu\t\t%u\t%lu\n",
-        src_ip, ntohs(con.src_port), dst_ip, ntohs(con.dst_port), con.src_state, con.timestamp);
-    printf("%-15s\t%hu\t\t%-15s\t%hu\t\t%u\n",
-        dst_ip, ntohs(con.dst_port), src_ip, ntohs(con.src_port), con.dst_state);
+    printf("%-15s\t%hu\t\t%-15s\t%hu\t\t%s\n",
+        src_ip, ntohs(con.src_port), dst_ip, ntohs(con.dst_port), state_to_s(con.src_state));
+    printf("%-15s\t%hu\t\t%-15s\t%hu\t\t%s\n",
+        dst_ip, ntohs(con.dst_port), src_ip, ntohs(con.src_port), state_to_s(con.dst_state));
 }
 
 void show_conn_tab(void){

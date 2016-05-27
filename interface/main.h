@@ -14,7 +14,6 @@
 #include <string.h>
 #include <time.h>
 #include <arpa/inet.h>
-#include "util.h"
 
 #define SYSFS_PATH(file) "/sys/class/fw/" file
 #define DEV_PATH(file) "/dev/fw_" file
@@ -122,4 +121,7 @@ typedef struct {
     conn_state dst_state;
     unsigned long timestamp; //last packet - for timeout calculation
 } connection;
+
+#include "util.h"
+
 #endif
