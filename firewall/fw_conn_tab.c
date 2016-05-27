@@ -86,7 +86,7 @@ reason_t check_conn_tab(rule_t *pkt, struct tcphdr *tcp_header){
                 con->src_state = C_TIME_WAIT;
                 con->dst_state = C_LAST_ACK;
             } else {
-                con->src_state = C_FIN_WAIT_2
+                con->src_state = C_FIN_WAIT_2;
             }
         } else if (con->src_state == C_FIN_WAIT_2) {
             if (tcp_header->fin){
@@ -94,7 +94,7 @@ reason_t check_conn_tab(rule_t *pkt, struct tcphdr *tcp_header){
                 con->dst_state = C_LAST_ACK;
             }
         } else if (con->src_state == C_LAST_ACK) {
-            con->src_state = C_CLOSED
+            con->src_state = C_CLOSED;
         }
     } else {
         if (con->dst_state == C_FIN_WAIT_1){
@@ -102,7 +102,7 @@ reason_t check_conn_tab(rule_t *pkt, struct tcphdr *tcp_header){
                 con->dst_state = C_TIME_WAIT;
                 con->src_state = C_LAST_ACK;
             } else {
-                con->dst_state = C_FIN_WAIT_2
+                con->dst_state = C_FIN_WAIT_2;
             }
         } else if (con->dst_state == C_FIN_WAIT_2) {
             if (tcp_header->fin){
@@ -110,7 +110,7 @@ reason_t check_conn_tab(rule_t *pkt, struct tcphdr *tcp_header){
                 con->src_state = C_LAST_ACK;
             }
         } else if (con->dst_state == C_LAST_ACK) {
-            con->dst_state = C_CLOSED
+            con->dst_state = C_CLOSED;
         }
     }
 
