@@ -33,15 +33,25 @@ static reason_t parse_tcp_hdr(rule_t *pkt, struct sk_buff *skb, char offset){
     struct tcphdr *tcp_header = (struct tcphdr *)(skb_transport_header(skb)+offset);;
     pkt->src_port = tcp_header->source;
     pkt->dst_port = tcp_header->dest;
+    if (!fw_active) // if firewall is inactive we only need the ports for logging.
+        return REASON_FW_INACTIVE;
+
     pkt->ack = tcp_header->ack ? ACK_YES : ACK_NO;
     // xmas packet - drop it
     if (tcp_header->fin && tcp_header->urg && tcp_header->psh){
         pkt->action = NF_DROP;
         return REASON_XMAS_PACKET;
     }
-    if (fw_active && (tcp_header->ack || pkt->src_port == htons(20))){
-        check_conn_tab(pkt, tcp_header);
-        return REASON_CONN_TAB;
+    if (tcp_header->ack){
+        return check_conn_tab(pkt, tcp_header);
+    }
+    if (!tcp_header->syn){ //if ack=0, this is the first packet and must have syn=1
+        pkt->action = NF_DROP;
+        return REASON_TCP_NON_COMPLIANT;
+    }
+    //check new ftp data connections
+    if (pkt->src_port == htons(20)) {
+
     }
     return 0;
 }
@@ -89,7 +99,7 @@ static unsigned int filter(unsigned int hooknum,
     case PROT_ICMP: //ICMP has no ports
         break;
     case PROT_TCP:
-        reason = parse_tcp_hdr(&pkt, skb, offset); //check for xmas while parsing
+        reason = parse_tcp_hdr(&pkt, skb, offset); //check the connection tab when parsing
         break;
     case PROT_UDP:
         parse_udp_hdr(&pkt, skb, offset);

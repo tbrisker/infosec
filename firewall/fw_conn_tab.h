@@ -31,7 +31,7 @@ typedef struct {
 #define CONNECTION_SIZE (sizeof(connection) - sizeof(struct list_head))
 #define TIMEOUT 25
 
-void check_conn_tab(rule_t *pkt, struct tcphdr *tcp_header);
+reason_t check_conn_tab(rule_t *pkt, struct tcphdr *tcp_header);
 void new_connection(rule_t pkt);
 int init_conn_tab(void);
 void cleanup_conn_tab(void);
