@@ -20,16 +20,22 @@ static direction_t parse_direction(const struct net_device *in, const struct net
 }
 
 /* Parse the packet's ip header to get ip addresses and protocol */
-static void parse_ip_hdr(rule_t *pkt, struct sk_buff *skb){
+static char parse_ip_hdr(rule_t *pkt, struct sk_buff *skb){
     struct iphdr *ip_header = ip_hdr(skb);
     pkt->src_ip = ip_header->saddr;
     pkt->dst_ip = ip_header->daddr;
     pkt->protocol = ip_header->protocol;
+    // check if the transport header still points to the network header and we
+    // need to set offset. Loosely inspired by
+    // http://stackoverflow.com/questions/29656012/netfilter-like-kernel-module-to-get-source-and-destination-address/
+    if ((unsigned char*)ip_header == skb_transport_header(skb))
+        return ip_header->ihl * 4;
+    return 0;
 }
 
 /* Parse the packet's tcp header to get ports and check flags */
 /* returns REASON_XMAS_PACKET in case the packet matches the xmas pattern */
-static reason_t parse_tcp_hdr(rule_t *pkt, struct sk_buff *skb, char offset){
+static reason_t parse_tcp_hdr(rule_t *pkt, struct sk_buff *skb, char offset, unsigned int hooknum){
     struct tcphdr *tcp_header = (struct tcphdr *)(skb_transport_header(skb)+offset);;
     pkt->src_port = tcp_header->source;
     pkt->dst_port = tcp_header->dest;
@@ -43,7 +49,7 @@ static reason_t parse_tcp_hdr(rule_t *pkt, struct sk_buff *skb, char offset){
         return REASON_XMAS_PACKET;
     }
     if (tcp_header->ack){
-        return check_conn_tab(pkt, tcp_header);
+        return check_conn_tab(pkt, tcp_header, hooknum, skb_tail_pointer(skb));
     }
     if (!tcp_header->syn){ //if ack=0, this is the first packet and must have syn=1
         pkt->action = NF_DROP;
@@ -87,13 +93,10 @@ static unsigned int filter(unsigned int hooknum,
     }
 
     pkt.direction = parse_direction(in, out);
-    parse_ip_hdr(&pkt, skb);
+    offset = parse_ip_hdr(&pkt, skb);
 #ifdef DEBUG
-    printk(KERN_DEBUG "ip packet, src: %d, dst: %d, transport protocol:%d\n", pkt.src_ip, pkt.dst_ip, pkt.protocol);
+    printk(KERN_DEBUG "ip packet, src: %pI4, dst: %pI4, transport protocol:%d\n", &pkt.src_ip, &pkt.dst_ip, pkt.protocol);
 #endif
-
-    if (hooknum == NF_INET_PRE_ROUTING) // we need to offset the transport header
-        offset = 20;
 
     switch (pkt.protocol){
     case PROT_ICMP: //ICMP has no ports
