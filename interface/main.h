@@ -116,13 +116,12 @@ typedef enum {
 } conn_state;
 
 typedef struct {
-    unsigned long src_ip;
+    unsigned int src_ip;
     unsigned short src_port;
-    unsigned long dst_ip;
+    unsigned int dst_ip;
     unsigned short dst_port;
-    conn_state src_state; //the connection initiator will be src
-    conn_state dst_state;
-    unsigned long timestamp; //last packet - for timeout calculation
+    char src_state; //the connection initiator will be src
+    char dst_state;
 } connection;
 
 #include "util.h"

@@ -12,7 +12,7 @@ typedef enum {
     REASON_CONN_EXIST            = -8,
     REASON_CONN_NOT_EXIST        = -9,
     REASON_TCP_NON_COMPLIANT     = -10,
-    REASON_HOST_BLOCKED          = -11
+    REASON_BLOCKED_HOST          = -11
 } reason_t;
 
 // log row

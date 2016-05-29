@@ -7,9 +7,6 @@ static LIST_HEAD(conn_table); // init the list representing the connection table
 
 static void del_con(connection * con){
     list_del(&con->list);
-    if (con->buffer != NULL){
-        kfree(con->buffer);
-    }
     kfree(con);
 }
 
@@ -18,34 +15,48 @@ static connection * find_connection(__be32 src_ip, __be16 src_port, __be32 dst_i
     connection *cur, *tmp;
     unsigned long expiry = get_seconds() - TIMEOUT; //timestamp for expiring old connections
     list_for_each_entry_safe(cur, tmp, &conn_table, list){
-        if (cur->timestamp < expiry || cur->src_state == C_CLOSED || cur->dst_state == C_CLOSED){
+        if ((cur->src_state == C_SYN_SENT && cur->timestamp < expiry) || cur->src_state == C_CLOSED || cur->dst_state == C_CLOSED){
             del_con(cur);
             continue;
         }
         if ((cur->src_ip == src_ip && cur->src_port == src_port &&
              cur->dst_ip == dst_ip && cur->dst_port == dst_port) ||
-            (cur->src_ip == dst_ip && cur->src_port == dst_port && //reverse direction - same connection
+            (cur->src_ip == dst_ip && cur->src_port == dst_port && //reverse direction = same connection
              cur->dst_ip == src_ip && cur->dst_port == src_port))
             return cur;
     }
     return NULL;
 }
 
-static __u8 parse_http(char * buf, struct tcphdr *tcp_header, unsigned char *tail){
+static __u8 parse_http(connection * con, struct tcphdr *tcp_header, unsigned char *tail){
     unsigned char *start = (unsigned char *)((unsigned char *)tcp_header + (tcp_header->doff * 4));
     int len = tail-start; //calculate tcp data length
-    int i,j=0;
-    for (i=0; i<len-6 && j==0; i++){
-        if (!strncmp(start[i],"Host: ", 6)){
-            i += 6;
-            while (i<len && start[i] != '\r' && j<CON_BUF_SIZE){
-                buf[j++] = start[i++];
+    int i = 0, j = 0;
+    char *host= "Host: ";
+#ifdef DEBUG
+    printk(KERN_DEBUG "parsing http, length %d:\n", len);
+#endif
+    j = strlen(con->buffer); //check if we already started to capture a host line
+    for (i=0; i < len; i++){
+        if (j>6 || !strncmp(&start[i], &host[j], min(len-i,6-j))){
+            while (i < len && start[i] != '\r' && start[i] != '\0' && j < CON_BUF_SIZE-1){
+                con->buffer[j++] = start[i++];
             }
+            con->buffer[j] = '\0';
+            if (start[i] == '\r'){//read an entire host line
+#ifdef DEBUG
+                printk(KERN_DEBUG "Found host: %s\n", con->buffer);
+#endif
+                con->buffer[0] = '\0'; //reset the buffer for the next lines
+                return check_hosts(&con->buffer[6]);
+            }
+            break;
+        } else if (j>0) { //false start, reset
+            con->buffer[0] = '\0';
+            j = 0;
         }
     }
-#ifdef DEBUG
-    printk(KERN_DEBUG "Found host: %s\n", buf);
-#endif
+    return NF_ACCEPT;
 }
 
 /* check if a given connection is permitted in the connection table
@@ -62,10 +73,11 @@ reason_t check_conn_tab(rule_t *pkt, struct tcphdr *tcp_header, unsigned int hoo
     }
     pkt->action = NF_ACCEPT; //existing connection - default to accept
 
-    if (con->hooknum != hooknum) //don't check the same packet in both hooks
+    if (con->hooknum != hooknum) //don't check the same packet twice
         return REASON_CONN_EXIST;
     con->timestamp = get_seconds(); //update the timestamp
-    reverse = (pkt->src_ip == con->dst_ip && pkt->src_port == con->dst_port);
+    reverse = (pkt->src_ip == con->dst_ip && pkt->src_port == con->dst_port &&
+               pkt->dst_ip == con->src_ip && pkt->dst_port == con->src_port);
 
     //in handshake
     if (con->src_state == C_SYN_SENT){
@@ -85,13 +97,13 @@ reason_t check_conn_tab(rule_t *pkt, struct tcphdr *tcp_header, unsigned int hoo
 //         printk(KERN_DEBUG "Dropped packet, invalid handshake\n");
 // #endif
 //         return REASON_TCP_NON_COMPLIANT;
-//     }
-//     if (tcp_header->syn){ //syn is valid only during handshake, drop otherwise
-//         pkt->action = NF_DROP;
-// #ifdef DEBUG
-//         printk(KERN_DEBUG "Dropped packet, unexpected syn\n");
-// #endif
-//         return REASON_TCP_NON_COMPLIANT;
+    }
+    if (tcp_header->syn){ //syn is valid only during handshake, drop otherwise
+        pkt->action = NF_DROP;
+#ifdef DEBUG
+        printk(KERN_DEBUG "Dropped packet, unexpected syn\n");
+#endif
+        return REASON_TCP_NON_COMPLIANT;
     }
 
     // in established connection
@@ -105,12 +117,12 @@ reason_t check_conn_tab(rule_t *pkt, struct tcphdr *tcp_header, unsigned int hoo
                 con->dst_state = C_CLOSE_WAIT;
             }
         }
-        if (pkt->dst_port == 80){
-            pkt->action = parse_http(con->buffer, tcp_header, tail);
+        if (pkt->dst_port == htons(80)){
+            pkt->action = parse_http(con, tcp_header, tail);
             if (pkt->action == NF_DROP){
                 return REASON_BLOCKED_HOST;
             }
-        } else if (pkt->dst_port == 21){
+        } else if (pkt->dst_port == htons(21)){
             // parse_ftp(con, tcp_header, tail);
         }
 
@@ -161,6 +173,9 @@ void new_connection(rule_t pkt, unsigned int hooknum){
     connection *con = find_connection(pkt.src_ip, pkt.src_port, pkt.dst_ip, pkt.dst_port);
     if (con) // don't add duplicates
         return;
+#ifdef DEBUG
+    printk(KERN_DEBUG "New Conn: src %pI4 %u dst %pI4 %u", &pkt.src_ip, ntohs(pkt.src_port), &pkt.dst_ip, ntohs(pkt.dst_port));
+#endif
     con = kmalloc(sizeof(connection), GFP_ATOMIC);
     if (!con){
         printk(KERN_ERR "Error allocating memory for connection.\n");
@@ -174,15 +189,7 @@ void new_connection(rule_t pkt, unsigned int hooknum){
     con->src_state = C_SYN_SENT; //handshake stage 1
     con->dst_state = C_LISTEN; //assume the server is listening - will timeout if not
     con->hooknum   = hooknum; //only capture a connection in one hook
-    if (pkt.dst_port == 80 || pkt.dst_port == 21){
-        con->buffer = kmalloc(sizeof(char)*CON_BUF_SIZE, GFP_ATOMIC);
-        if (con->buffer == NULL){
-            printk(KERN_ERR "Error allocating memory for connection.\n");
-            return;
-        }
-    } else {
-        con->buffer = NULL;
-    }
+    con->buffer[0] = '\0';
     list_add(&con->list, &conn_table);
 }
 
@@ -199,14 +206,14 @@ static struct list_head *cur_con; // used for iterating the list during read
 
 static int open_cons(struct inode *_inode, struct file *_file){
 #ifdef DEBUG
-    printk(KERN_DEBUG "opened log\n");
+    printk(KERN_DEBUG "opened conn_tab\n");
 #endif
     cur_con = conn_table.next; //reset the pointer to the first row
     return 0;
 }
 
 static ssize_t read_cons(struct file *filp, char *buff, size_t length, loff_t *offp){
-    unsigned long expiry = get_seconds() - TIMEOUT; //timestamp for expiring old connections
+    unsigned long expiry = get_seconds() - TIMEOUT*10; //expire very stale connections when listing
     connection *tmp;
 #ifdef DEBUG
     printk(KERN_DEBUG "read cons, length: %d, row size: %d\n", length, CONNECTION_SIZE);
