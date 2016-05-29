@@ -102,7 +102,7 @@ static unsigned int filter(unsigned int hooknum,
     case PROT_ICMP: //ICMP has no ports
         break;
     case PROT_TCP:
-        reason = parse_tcp_hdr(&pkt, skb, offset); //check the connection tab when parsing
+        reason = parse_tcp_hdr(&pkt, skb, offset, hooknum); //check the connection tab when parsing
         break;
     case PROT_UDP:
         parse_udp_hdr(&pkt, skb, offset);
@@ -123,7 +123,7 @@ static unsigned int filter(unsigned int hooknum,
     //print the decision to the kernel log, update counter and return decision.
     if (pkt.action == NF_ACCEPT){
         if (pkt.protocol == PROT_TCP && pkt.ack == ACK_NO)
-            new_connection(pkt); // add a new connection to the connection tab
+            new_connection(pkt, hooknum); // add a new connection to the connection tab
         PASS_AND_RET;
     }
     DROP_AND_RET;

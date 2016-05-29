@@ -27,8 +27,8 @@ static void cleanup_firewall(int step){
     switch (step){
     case 7:
         cleanup_filter();
-    // case 6:
-    //     cleanup_hosts();
+    case 6:
+        cleanup_hosts();
     case 5:
         cleanup_conn_tab();
     case 4:
@@ -74,12 +74,12 @@ static int __init firewall_init_function(void) {
         cleanup_firewall(4);
         return err;
     }
-    //init rules
-    // if ((err = init_hosts())){
-    //     PERR("rules interface init failed");
-    //     cleanup_firewall(5);
-    //     return err;
-    // }
+    //init hosts
+    if ((err = init_hosts())){
+        PERR("hosts interface init failed");
+        cleanup_firewall(5);
+        return err;
+    }
     //init filter
     if ((err = init_filter())){
         PERR("filter init failed");

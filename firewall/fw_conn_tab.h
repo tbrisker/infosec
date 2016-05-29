@@ -17,24 +17,24 @@ typedef enum {
     C_TIME_WAIT
 } conn_state;
 
+#define CON_BUF_SIZE 100
 typedef struct {
     __be32 src_ip;
     __be16 src_port;
     __be32 dst_ip;
     __be16 dst_port;
-    conn_state src_state; //the connection initiator will be src
-    conn_state dst_state;
+    char src_state; //the connection initiator will be src
+    char dst_state;
     unsigned long timestamp; //last packet - for timeout calculation
     unsigned int hooknum; // make sure we only capture in one hook - for fwd packets
-    char * buffer;
+    char buffer[CON_BUF_SIZE];
     struct list_head list;
 } connection;
 
-#define CONNECTION_SIZE (sizeof(connection) - sizeof(struct list_head) - sizeof(char *))
+#define CONNECTION_SIZE (sizeof(connection)-sizeof(long)-sizeof(int)-sizeof(char)*CON_BUF_SIZE-sizeof(struct list_head))
 #define TIMEOUT 25
-#define CON_BUF_SIZE 100
 
-reason_t check_conn_tab(rule_t *pkt, struct tcphdr *tcp_header, unsigned int hooknum, char *tail);
+reason_t check_conn_tab(rule_t *pkt, struct tcphdr *tcp_header, unsigned int hooknum, unsigned char *tail);
 void new_connection(rule_t pkt, unsigned int hooknum);
 int init_conn_tab(void);
 void cleanup_conn_tab(void);
