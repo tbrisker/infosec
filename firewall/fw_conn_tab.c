@@ -48,7 +48,9 @@ static __u8 parse_http(connection * con, struct tcphdr *tcp_header, unsigned cha
                 printk(KERN_DEBUG "Found host: %s\n", con->buffer);
 #endif
                 con->buffer[0] = '\0'; //reset the buffer for the next lines
-                return check_hosts(&con->buffer[6]);
+                if (check_hosts(&con->buffer[6])){
+                    return NF_DROP;
+                }
             }
             break;
         } else if (j>0) { //false start, reset
@@ -91,12 +93,6 @@ reason_t check_conn_tab(rule_t *pkt, struct tcphdr *tcp_header, unsigned int hoo
             con->src_state = con->dst_state = C_ESTABLISHED;
             return REASON_CONN_EXIST;
         }
-        // any packet that doesn't match the handshake protocol is invalid.
-//         pkt->action = NF_DROP;
-// #ifdef DEBUG
-//         printk(KERN_DEBUG "Dropped packet, invalid handshake\n");
-// #endif
-//         return REASON_TCP_NON_COMPLIANT;
     }
     if (tcp_header->syn){ //syn is valid only during handshake, drop otherwise
         pkt->action = NF_DROP;

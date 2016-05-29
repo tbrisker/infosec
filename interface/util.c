@@ -196,19 +196,21 @@ char reason_str[5];
 char * reason_to_s(reason_t reason){
     switch (reason){
     case REASON_FW_INACTIVE:
-        return "REASON_FW_INACTIVE";
+        return "FW_INACTIVE";
     case REASON_NO_MATCHING_RULE:
-        return "REASON_NO_MATCHING_RULE";
+        return "NO_MATCHING_RULE";
     case REASON_XMAS_PACKET:
-        return "REASON_XMAS_PACKET";
+        return "XMAS_PACKET";
     case REASON_ILLEGAL_VALUE:
-        return "REASON_ILLEGAL_VALUE";
+        return "ILLEGAL_VALUE";
     case REASON_CONN_EXIST:
-        return "REASON_CONN_EXIST";
+        return "CONN_EXIST";
     case REASON_CONN_NOT_EXIST:
-        return "REASON_CONN_NOT_EXIST";
+        return "CONN_NOT_EXIST";
     case REASON_TCP_NON_COMPLIANT:
-        return "REASON_TCP_NON_COMPLIANT";
+        return "TCP_NON_COMPLIANT";
+    case REASON_BLOCKED_HOST:
+        return "BLOCKED_HOST";
     default:
         snprintf(reason_str, 5, "%d", reason);
     }
