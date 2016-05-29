@@ -4,11 +4,24 @@ MODULE_LICENSE("GPL");
 MODULE_AUTHOR("Tomer Brisker");
 
 char * host_list;
+int host_len;
 
-__u8 check_hosts(char *host){
-    if (!strcmp(host, "10.0.1.3"))
-        return NF_DROP;
-    return NF_ACCEPT;
+/* check if a given host is on the blocked hosts list */
+int check_hosts(char *host){
+    char *tmp = strstr(host_list, host);
+    int len = strlen(host);
+    while (tmp){
+        //make sure we have a complete match
+        if ((tmp==host_list || tmp[-1] == '\n') &&
+            (tmp[len] == '\n' || tmp[len] == '\r' || tmp[len] == '\0')){
+#ifdef DEBUG
+            printk(KERN_DEBUG "Blocked host: %s\n", host);
+#endif
+            return 1;
+        }
+        tmp = strstr(tmp+1, host);
+    }
+    return 0;
 }
 
 static int major_number;
@@ -17,17 +30,19 @@ static struct file_operations fops = {
     .owner = THIS_MODULE
 };
 
+/* show the blocked host list to the user */
 static ssize_t show_hosts(struct device *dev, struct device_attribute *attr, char *buf){
 #ifdef DEBUG
-    printk(KERN_DEBUG "showing hosts, length %d\n", strlen(host_list));
+    printk(KERN_DEBUG "showing hosts, length %d\n", host_len);
 #endif
     if (host_list == NULL)
         return 0;
-    return scnprintf(buf, strlen(host_list), "%s\n", host_list);
+    return scnprintf(buf, host_len+1, "%s\n", host_list);
 }
 
+/* load a blocked host list from the user */
 static ssize_t set_hosts(struct device *dev, struct device_attribute *attr, const char *buf, size_t count){
-    int host_len = min((long)count, strlen_user(buf))+1;
+    host_len = count;
 #ifdef DEBUG
     printk(KERN_DEBUG "setting hosts, length %d\n", count);
 #endif
@@ -36,9 +51,16 @@ static ssize_t set_hosts(struct device *dev, struct device_attribute *attr, cons
     host_list = kmalloc(host_len, GFP_KERNEL);
     if (host_list == NULL){
         printk(KERN_ERR "kmalloc for host list failed\n");
+        host_len = 0;
         return -ENOMEM;
     }
-    return scnprintf(host_list, host_len, "%s", buf);
+    if (scnprintf(host_list, host_len, "%s", buf)<0){
+        printk(KERN_ERR "Error copying string from userspace");
+        kfree(host_list);
+        host_len = 0;
+        return -EFAULT;
+    }
+    return count;
 }
 
 /* Array of device attributes to set for the device. */
@@ -53,6 +75,8 @@ int init_hosts(void){
 #ifdef DEBUG
     printk(KERN_DEBUG "initializing hosts device\n");
 #endif
+    host_list = NULL;
+    host_len = 0;
     major_number = safe_device_init(DEVICE_NAME_HOSTS, &fops, dev, hosts_attrs);
     // Since we use safe_device_init, in case of failure all cleanup will be
     // handled already, only need to return 0 for non-negative major (=no error)
