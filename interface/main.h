@@ -47,13 +47,11 @@ typedef enum {
 #define DEVICE_NAME_LOG    "log"
 #define CLASS_NAME         "fw"
 
-
 // auxiliary values, for your convenience
 #define IP_VERSION      (4)
 #define PORT_ANY        (0)
 #define PORT_ABOVE_1023 (1023)
 #define MAX_RULES       (50)
-
 
 //netfilter values
 #define NF_DROP 0
@@ -87,9 +85,8 @@ typedef struct {
 } rule_t;
 
 #define RULE_SIZE sizeof(rule_t)
-#define FORMATTED_RULE_SIZE 100 //100 is enough for a formatted rule taking in account maximum field lengths
+#define FORMATTED_RULE_SIZE 100 //100 is enough for a formatted rule, taking in account maximum field lengths
 
-// logging
 typedef struct {
     unsigned long   timestamp;      // time of creation/update
     unsigned char   protocol;       // values from: prot_t
@@ -123,7 +120,7 @@ typedef struct {
     unsigned short src_port;
     unsigned int dst_ip;
     unsigned short dst_port;
-    char src_state; //the connection initiator will be src
+    char src_state;
     char dst_state;
 } connection;
 

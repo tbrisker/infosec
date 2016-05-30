@@ -40,6 +40,9 @@ static void cleanup_firewall(int step){
     case 1:
         class_destroy(sysfs_class);
     }
+#ifdef DEBUG
+    printk(KERN_DEBUG "firewall cleanup successful!\n");
+#endif
 }
 
 /* Load all firewall modules in order */

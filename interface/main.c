@@ -219,6 +219,7 @@ void load_hosts(const char * path){
     close(dst);
 }
 
+/* print a connection entry */
 void print_con(connection con){
     char src_ip[16], dst_ip[16]; // max ip length: 4*3+3*1=15
     inet_ntop(AF_INET, &con.src_ip, src_ip, 16); //convert the ips to strings
@@ -229,6 +230,7 @@ void print_con(connection con){
         dst_ip, ntohs(con.dst_port), src_ip, ntohs(con.src_port), state_to_s(con.dst_state));
 }
 
+/* print the connection table */
 void show_conn_tab(void){
     int fd;
     connection con;

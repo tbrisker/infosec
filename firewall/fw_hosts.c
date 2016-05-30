@@ -3,8 +3,15 @@
 MODULE_LICENSE("GPL");
 MODULE_AUTHOR("Tomer Brisker");
 
-char * host_list;
-int host_len;
+/************************
+ * Blocked hosts module *
+ ************************/
+
+/* Internal list representation and helper functions */
+/*****************************************************/
+
+static char * host_list; //the blocked host list provided by the user. we just copy it from the user.
+static int host_len; // the length of the list
 
 /* check if a given host is on the blocked hosts list */
 int check_hosts(char *host){
@@ -23,6 +30,9 @@ int check_hosts(char *host){
     }
     return 0;
 }
+
+/* hosts list sysfs device functions and handlers */
+/**************************************************/
 
 static int major_number;
 static struct device *dev = NULL;
@@ -69,7 +79,6 @@ static struct device_attribute hosts_attrs[]= {
     __ATTR_NULL // stopping condition for loop in device_add_attributes()
 };
 
-
 /* initialize the hosts module */
 int init_hosts(void){
 #ifdef DEBUG
@@ -89,4 +98,6 @@ void cleanup_hosts(void){
     printk(KERN_DEBUG "Cleaning up hosts device\n");
 #endif
     safe_device_cleanup(major_number, 3, dev, hosts_attrs);
+    if (host_list != NULL)
+        kfree(host_list);
 }
