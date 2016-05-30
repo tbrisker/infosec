@@ -149,6 +149,7 @@ void write_rules(rule_t rules[], int count){
     }
     close(fd);
 }
+
 /* load rules from a file and write them to the char device */
 void load_rules(const char * path){
     FILE *fp;
@@ -166,6 +167,56 @@ void load_rules(const char * path){
 
     if (count > 0)
         write_rules(rules, count);
+}
+
+/* show all hosts from the sysfs device to the user */
+void show_hosts(){
+    FILE *fp;
+    int c;
+    fp = fopen(SYSFS_PATH("fw_hosts/hosts"), "r");
+    if (fp < 0){
+        perror("Error opening file");
+        return;
+    }
+    while ((c = getc(fp)) != EOF){
+        putchar(c);
+    }
+    fclose(fp);
+}
+
+/* copy hosts from a file to the sysfs device */
+void load_hosts(const char * path){
+    struct stat file_stat;
+    int src, dst;
+
+    src = open(path, O_RDONLY);
+    if (!src){
+        perror("Error opening file");
+        return;
+    }
+    if (fstat(src, &file_stat)){
+        perror("Error reading file stat");
+        close(src);
+        return;
+    }
+    if (file_stat.st_size >= getpagesize()){
+        printf("Hosts list is too large, maximum size is %d\n", getpagesize());
+        close(src);
+        return;
+    }
+
+    dst = open(SYSFS_PATH("fw_hosts/hosts"), O_WRONLY);
+    if (dst<0){
+        perror("Error opening file");
+        close(src);
+        return;
+    }
+    if (sendfile(dst, src, NULL, file_stat.st_size)<0){
+        perror("Error copying host list");
+    }
+
+    close(src);
+    close(dst);
 }
 
 void print_con(connection con){
@@ -216,6 +267,14 @@ int main(int argc, char const *argv[]){
     }
     if (!strcmp(argv[1], "load_rules") && argc == 3){
         load_rules(argv[2]);
+        return 0;
+    }
+    if (!strcmp(argv[1], "show_hosts")){
+        show_hosts();
+        return 0;
+    }
+    if (!strcmp(argv[1], "load_hosts") && argc == 3){
+        load_hosts(argv[2]);
         return 0;
     }
     if (!strcmp(argv[1], "show_log")){
