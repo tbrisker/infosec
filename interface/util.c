@@ -244,6 +244,7 @@ char * port_to_s(unsigned short port){
     return "ERR";
 }
 
+/* convert a connection state to a string */
 char * state_to_s(conn_state state){
     switch (state){
     case C_CLOSED:
