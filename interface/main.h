@@ -7,6 +7,7 @@
 #include <dirent.h>
 #include <sys/stat.h>
 #include <sys/types.h>
+#include <sys/sendfile.h>
 #include <fcntl.h>
 #include <unistd.h>
 #include <assert.h>
