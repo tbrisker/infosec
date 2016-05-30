@@ -15,7 +15,8 @@ static connection * find_connection(__be32 src_ip, __be16 src_port, __be32 dst_i
     connection *cur, *tmp;
     unsigned long expiry = get_seconds() - TIMEOUT; //timestamp for expiring old connections
     list_for_each_entry_safe(cur, tmp, &conn_table, list){
-        if ((cur->src_state == C_SYN_SENT && cur->timestamp < expiry) || cur->src_state == C_CLOSED || cur->dst_state == C_CLOSED){
+        if (((cur->src_state == C_SYN_SENT || cur->src_state == C_FTP_DATA) && cur->timestamp < expiry)
+            || cur->src_state == C_CLOSED || cur->dst_state == C_CLOSED){
             del_con(cur);
             continue;
         }
@@ -28,11 +29,90 @@ static connection * find_connection(__be32 src_ip, __be16 src_port, __be32 dst_i
     return NULL;
 }
 
+static void add_ftp_data(connection *ftp){
+    __be32 src_ip   = 0;
+    __be16 src_port = 0;
+    unsigned char tmp[6]; //will be used to parse the ip and port
+    connection *con;
+#ifdef DEBUG
+    printk(KERN_DEBUG "Parsing ftp PORT: %s\n", ftp->buffer);
+#endif
+    if (sscanf(ftp->buffer, "PORT %hhu,%hhu,%hhu,%hhu,%hhu,%hhu",
+               &tmp[0], &tmp[1], &tmp[2], &tmp[3], &tmp[4], &tmp[5]) != 6){
+        printk(KERN_NOTICE "Bad PORT string: %s\n", ftp->buffer);
+        return;
+    }
+
+    src_ip = (tmp[3] << 24) | (tmp[2]<<16) | (tmp[1]<<8) | tmp[0]; //net order is big-endian
+    src_port = (tmp[5] << 8) | tmp[4];
+
+#ifdef DEBUG
+    printk(KERN_DEBUG "Parsed ftp PORT: ip %pI4 port %u\n", &src_ip, ntohs(src_port));
+#endif
+
+    if (src_ip != ftp->src_ip){
+        printk(KERN_NOTICE "Non matching ip in port command: client is %pI4 but passed %pI4\n",
+            &ftp->src_ip, &src_ip);
+        return;
+    }
+
+    con = find_connection(src_ip, src_port, ftp->dst_ip, htons(20));
+    if (con) // don't add duplicates
+        return;
+#ifdef DEBUG
+    printk(KERN_DEBUG "New Conn: src %pI4:%u dst %pI4:20\n", &src_ip, ntohs(src_port), &ftp->dst_ip);
+#endif
+    con = kmalloc(sizeof(connection), GFP_ATOMIC);
+    if (!con){
+        printk(KERN_ERR "Error allocating memory for connection.\n");
+        return;
+    }
+    con->timestamp = get_seconds();
+    con->src_ip    = src_ip;
+    con->src_port  = src_port;
+    con->dst_ip    = ftp->dst_ip;
+    con->dst_port  = htons(20);
+    con->src_state = con->dst_state = C_FTP_DATA;
+    con->buffer[0] = '\0';
+    list_add(&con->list, &conn_table);
+}
+
+static void parse_ftp(connection * con, struct tcphdr *tcp_header, unsigned char *tail){
+    unsigned char *start = (unsigned char *)((unsigned char *)tcp_header + (tcp_header->doff * 4));
+    int len = tail-start; //calculate tcp data length
+    int i = 0, j = 0;
+    char *port = "PORT ";
+#ifdef DEBUG
+    printk(KERN_DEBUG "parsing ftp, length %d:\n", len);
+#endif
+    j = strlen(con->buffer); //check if we already started to capture a port line
+    for (i=0; i < len; i++){
+        if (j>5 || !strncmp(&start[i], &port[j], min(len-i,5-j))){
+            while (i < len && start[i] != '\r' && start[i] != '\0' && j < CON_BUF_SIZE-1){
+                con->buffer[j++] = start[i++];
+            }
+            con->buffer[j] = '\0';
+            if (start[i] == '\r'){//read an entire port line
+#ifdef DEBUG
+                printk(KERN_DEBUG "Found port: %s\n", con->buffer);
+#endif
+                add_ftp_data(con);
+                con->buffer[0] = '\0'; //reset the buffer for the next lines
+                return;
+            }
+            break;
+        } else if (j>0) { //false start, reset
+            con->buffer[0] = '\0';
+            j = 0;
+        }
+    }
+}
+
 static __u8 parse_http(connection * con, struct tcphdr *tcp_header, unsigned char *tail){
     unsigned char *start = (unsigned char *)((unsigned char *)tcp_header + (tcp_header->doff * 4));
     int len = tail-start; //calculate tcp data length
     int i = 0, j = 0;
-    char *host= "Host: ";
+    char *host = "Host: ";
 #ifdef DEBUG
     printk(KERN_DEBUG "parsing http, length %d:\n", len);
 #endif
@@ -59,6 +139,16 @@ static __u8 parse_http(connection * con, struct tcphdr *tcp_header, unsigned cha
         }
     }
     return NF_ACCEPT;
+}
+
+reason_t check_ftp_data(rule_t *pkt){
+    connection *con = find_connection(pkt->src_ip, pkt->src_port, pkt->dst_ip, pkt->dst_port);
+    if (NULL == con || con->src_state != C_FTP_DATA){ //non existing connection or non ftp data - drop the packet
+        pkt->action = NF_DROP;
+        return REASON_CONN_NOT_EXIST;
+    }
+    pkt->action = NF_ACCEPT;
+    return REASON_CONN_EXIST;
 }
 
 /* check if a given connection is permitted in the connection table
@@ -119,7 +209,7 @@ reason_t check_conn_tab(rule_t *pkt, struct tcphdr *tcp_header, unsigned int hoo
                 return REASON_BLOCKED_HOST;
             }
         } else if (pkt->dst_port == htons(21)){
-            // parse_ftp(con, tcp_header, tail);
+            parse_ftp(con, tcp_header, tail);
         }
 
         //any packet is valid now (we already made sure syn=0, ack=1)
@@ -170,7 +260,7 @@ void new_connection(rule_t pkt, unsigned int hooknum){
     if (con) // don't add duplicates
         return;
 #ifdef DEBUG
-    printk(KERN_DEBUG "New Conn: src %pI4 %u dst %pI4 %u", &pkt.src_ip, ntohs(pkt.src_port), &pkt.dst_ip, ntohs(pkt.dst_port));
+    printk(KERN_DEBUG "New Conn: src %pI4:%u dst %pI4:%u\n", &pkt.src_ip, ntohs(pkt.src_port), &pkt.dst_ip, ntohs(pkt.dst_port));
 #endif
     con = kmalloc(sizeof(connection), GFP_ATOMIC);
     if (!con){

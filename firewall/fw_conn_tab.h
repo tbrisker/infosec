@@ -14,7 +14,8 @@ typedef enum {
     C_FIN_WAIT_1,
     C_FIN_WAIT_2,
     C_CLOSING,
-    C_TIME_WAIT
+    C_TIME_WAIT,
+    C_FTP_DATA
 } conn_state;
 
 #define CON_BUF_SIZE 100
@@ -35,7 +36,9 @@ typedef struct {
 #define TIMEOUT 25
 
 reason_t check_conn_tab(rule_t *pkt, struct tcphdr *tcp_header, unsigned int hooknum, unsigned char *tail);
+reason_t check_ftp_data(rule_t *pkt);
 void new_connection(rule_t pkt, unsigned int hooknum);
+
 int init_conn_tab(void);
 void cleanup_conn_tab(void);
 
