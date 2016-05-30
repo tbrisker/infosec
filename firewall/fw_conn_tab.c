@@ -141,16 +141,6 @@ static __u8 parse_http(connection * con, struct tcphdr *tcp_header, unsigned cha
     return NF_ACCEPT;
 }
 
-reason_t check_ftp_data(rule_t *pkt){
-    connection *con = find_connection(pkt->src_ip, pkt->src_port, pkt->dst_ip, pkt->dst_port);
-    if (NULL == con || con->src_state != C_FTP_DATA){ //non existing connection or non ftp data - drop the packet
-        pkt->action = NF_DROP;
-        return REASON_CONN_NOT_EXIST;
-    }
-    pkt->action = NF_ACCEPT;
-    return REASON_CONN_EXIST;
-}
-
 /* check if a given connection is permitted in the connection table
  * and update the connection state if it changed.
  * Sets the action on the packet according to the decision.
@@ -165,7 +155,7 @@ reason_t check_conn_tab(rule_t *pkt, struct tcphdr *tcp_header, unsigned int hoo
     }
     pkt->action = NF_ACCEPT; //existing connection - default to accept
 
-    if (con->hooknum != hooknum) //don't check the same packet twice
+    if (con->src_state != C_FTP_DATA && con->hooknum != hooknum) //don't check the same packet twice
         return REASON_CONN_EXIST;
     con->timestamp = get_seconds(); //update the timestamp
     reverse = (pkt->src_ip == con->dst_ip && pkt->src_port == con->dst_port &&
@@ -184,7 +174,7 @@ reason_t check_conn_tab(rule_t *pkt, struct tcphdr *tcp_header, unsigned int hoo
             return REASON_CONN_EXIST;
         }
     }
-    if (tcp_header->syn){ //syn is valid only during handshake, drop otherwise
+    if (con->src_state != C_FTP_DATA && tcp_header->syn){ //syn is valid only during handshake, drop otherwise
         pkt->action = NF_DROP;
 #ifdef DEBUG
         printk(KERN_DEBUG "Dropped packet, unexpected syn\n");
@@ -193,7 +183,7 @@ reason_t check_conn_tab(rule_t *pkt, struct tcphdr *tcp_header, unsigned int hoo
     }
 
     // in established connection
-    if (con->src_state == C_ESTABLISHED) {
+    if (con->src_state == C_ESTABLISHED || con->src_state == C_FTP_DATA) {
         if (tcp_header->fin){ //handle close requests
             if (reverse){ //the server requested the close
                 con->src_state = C_CLOSE_WAIT;
@@ -202,8 +192,7 @@ reason_t check_conn_tab(rule_t *pkt, struct tcphdr *tcp_header, unsigned int hoo
                 con->src_state = C_FIN_WAIT_1;
                 con->dst_state = C_CLOSE_WAIT;
             }
-        }
-        if (pkt->dst_port == htons(80)){
+        } else if (pkt->dst_port == htons(80)){
             pkt->action = parse_http(con, tcp_header, tail);
             if (pkt->action == NF_DROP){
                 return REASON_BLOCKED_HOST;
