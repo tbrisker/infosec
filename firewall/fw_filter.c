@@ -48,16 +48,16 @@ static reason_t parse_tcp_hdr(rule_t *pkt, struct sk_buff *skb, char offset, uns
         pkt->action = NF_DROP;
         return REASON_XMAS_PACKET;
     }
+    //check ftp data connections separately - only allow if a port command preceded.
+    if (pkt->src_port == htons(20) || pkt->dst_port == htons(20)) {
+        return check_ftp_data(pkt);
+    }
     if (tcp_header->ack){
         return check_conn_tab(pkt, tcp_header, hooknum, skb_tail_pointer(skb));
     }
     if (!tcp_header->syn){ //if ack=0, this is the first packet and must have syn=1
         pkt->action = NF_DROP;
         return REASON_TCP_NON_COMPLIANT;
-    }
-    //check new ftp data connections
-    if (pkt->src_port == htons(20)) {
-
     }
     return 0;
 }

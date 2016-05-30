@@ -268,6 +268,8 @@ char * state_to_s(conn_state state){
         return "CLOSING";
     case C_TIME_WAIT:
         return "TIME_WAIT";
+    case C_FTP_DATA:
+        return "FTP_DATA";
     }
     return "ERR";
 }
