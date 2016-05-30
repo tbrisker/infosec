@@ -94,6 +94,7 @@ static unsigned int filter(unsigned int hooknum,
     printk(KERN_DEBUG "ip packet, src: %pI4, dst: %pI4, transport protocol:%d\n", &pkt.src_ip, &pkt.dst_ip, pkt.protocol);
 #endif
 
+    // get the ports for the log, and handle more complex tcp checks on the way
     switch (pkt.protocol){
     case PROT_ICMP: //ICMP has no ports
         break;
@@ -107,7 +108,7 @@ static unsigned int filter(unsigned int hooknum,
         pkt.protocol = PROT_OTHER; //map any unknown protocols to other
     }
 
-    if (!fw_active){ //don't stop anything if inactive, just log
+    if (!fw_active){ //don't stop anything if inactive, just log - just to make sure.
         reason = REASON_FW_INACTIVE;
         pkt.action = NF_ACCEPT;
     }
@@ -118,7 +119,7 @@ static unsigned int filter(unsigned int hooknum,
             pkt.src_port, pkt.dst_port, reason);
     //print the decision to the kernel log, update counter and return decision.
     if (pkt.action == NF_ACCEPT){
-        if (pkt.protocol == PROT_TCP && pkt.ack == ACK_NO && pkt.src_port != htons(20))
+        if (pkt.protocol == PROT_TCP && pkt.ack == ACK_NO && pkt.src_port != htons(20) && pkt.dst_port != htons(20))
             new_connection(pkt, hooknum); // add a new connection to the connection tab
         PASS_AND_RET;
     }

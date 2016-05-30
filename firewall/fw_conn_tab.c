@@ -3,18 +3,27 @@
 MODULE_LICENSE("GPL");
 MODULE_AUTHOR("Tomer Brisker");
 
+/***************************
+ * Connection table module *
+ ***************************/
+
+/* Internal table representation and helper functions */
+/******************************************************/
+
 static LIST_HEAD(conn_table); // init the list representing the connection table
 
+/* removes a connection from the connection table and frees its memory */
 static void del_con(connection * con){
     list_del(&con->list);
     kfree(con);
 }
 
-/* locate a connection in the connection table or return NULL if does not exist */
+/* locate a connection in the connection table or return NULL if a match does not exist */
 static connection * find_connection(__be32 src_ip, __be16 src_port, __be32 dst_ip, __be16 dst_port){
     connection *cur, *tmp;
     unsigned long expiry = get_seconds() - TIMEOUT; //timestamp for expiring old connections
     list_for_each_entry_safe(cur, tmp, &conn_table, list){
+        //remove any old connections in the handshake stage, inactive ftp data, or closed connections
         if (((cur->src_state == C_SYN_SENT || cur->src_state == C_FTP_DATA) && cur->timestamp < expiry)
             || cur->src_state == C_CLOSED || cur->dst_state == C_CLOSED){
             del_con(cur);
@@ -29,27 +38,31 @@ static connection * find_connection(__be32 src_ip, __be16 src_port, __be32 dst_i
     return NULL;
 }
 
+/* add an ftp data connection to the connection table, based on what was found in
+ * and existing ftp connection. If the PORT command contains invalid parameters
+ * or an IP different then the client's - block it (by not adding it to the table).
+ * PORT is always sent by the client, which is ftp->src, and the server will always
+ * be ftp->dst.
+ */
 static void add_ftp_data(connection *ftp){
     __be32 src_ip   = 0;
     __be16 src_port = 0;
     unsigned char tmp[6]; //will be used to parse the ip and port
     connection *con;
-#ifdef DEBUG
-    printk(KERN_DEBUG "Parsing ftp PORT: %s\n", ftp->buffer);
-#endif
+
     if (sscanf(ftp->buffer, "PORT %hhu,%hhu,%hhu,%hhu,%hhu,%hhu",
                &tmp[0], &tmp[1], &tmp[2], &tmp[3], &tmp[4], &tmp[5]) != 6){
         printk(KERN_NOTICE "Bad PORT string: %s\n", ftp->buffer);
         return;
     }
-
+    //some bit magic to get those numbers into the correct vars
     src_ip = (tmp[3] << 24) | (tmp[2]<<16) | (tmp[1]<<8) | tmp[0]; //net order is big-endian
     src_port = (tmp[5] << 8) | tmp[4];
 
 #ifdef DEBUG
     printk(KERN_DEBUG "Parsed ftp PORT: ip %pI4 port %u\n", &src_ip, ntohs(src_port));
 #endif
-
+    //make sure the client didn't spoof a different ip to gain an exception to the fw
     if (src_ip != ftp->src_ip){
         printk(KERN_NOTICE "Non matching ip in port command: client is %pI4 but passed %pI4\n",
             &ftp->src_ip, &src_ip);
@@ -60,7 +73,7 @@ static void add_ftp_data(connection *ftp){
     if (con) // don't add duplicates
         return;
 #ifdef DEBUG
-    printk(KERN_DEBUG "New Conn: src %pI4:%u dst %pI4:20\n", &src_ip, ntohs(src_port), &ftp->dst_ip);
+    printk(KERN_DEBUG "New ftp data connection: src %pI4:%u dst %pI4:20\n", &src_ip, ntohs(src_port), &ftp->dst_ip);
 #endif
     con = kmalloc(sizeof(connection), GFP_ATOMIC);
     if (!con){
@@ -73,10 +86,13 @@ static void add_ftp_data(connection *ftp){
     con->dst_ip    = ftp->dst_ip;
     con->dst_port  = htons(20);
     con->src_state = con->dst_state = C_FTP_DATA;
-    con->buffer[0] = '\0';
+    con->buffer[0] = '\0'; // not really needed here
     list_add(&con->list, &conn_table);
 }
 
+/* Parse an ftp packet to check if the data contains a PORT command.
+ * If it does, add a new ftp data connection to the connection table.
+ */
 static void parse_ftp(connection * con, struct tcphdr *tcp_header, unsigned char *tail){
     unsigned char *start = (unsigned char *)((unsigned char *)tcp_header + (tcp_header->doff * 4));
     int len = tail-start; //calculate tcp data length
@@ -85,11 +101,11 @@ static void parse_ftp(connection * con, struct tcphdr *tcp_header, unsigned char
 #ifdef DEBUG
     printk(KERN_DEBUG "parsing ftp, length %d:\n", len);
 #endif
-    j = strlen(con->buffer); //check if we already started to capture a port line
+    j = strlen(con->buffer); //check if we already started to capture a port line in a previous fragment
     for (i=0; i < len; i++){
         if (j>5 || !strncmp(&start[i], &port[j], min(len-i,5-j))){
             while (i < len && start[i] != '\r' && start[i] != '\0' && j < CON_BUF_SIZE-1){
-                con->buffer[j++] = start[i++];
+                con->buffer[j++] = start[i++]; //copy the matching line to the buffer
             }
             con->buffer[j] = '\0';
             if (start[i] == '\r'){//read an entire port line
@@ -101,13 +117,16 @@ static void parse_ftp(connection * con, struct tcphdr *tcp_header, unsigned char
                 return;
             }
             break;
-        } else if (j>0) { //false start, reset
+        } else if (j>0) { //false start, reset the buffer
             con->buffer[0] = '\0';
             j = 0;
         }
     }
 }
 
+/* Parse an HTTP packet to check if the data contains a Host: command.
+ * If it does, check if that host is forbidden and block the packet.
+ */
 static __u8 parse_http(connection * con, struct tcphdr *tcp_header, unsigned char *tail){
     unsigned char *start = (unsigned char *)((unsigned char *)tcp_header + (tcp_header->doff * 4));
     int len = tail-start; //calculate tcp data length
@@ -116,11 +135,11 @@ static __u8 parse_http(connection * con, struct tcphdr *tcp_header, unsigned cha
 #ifdef DEBUG
     printk(KERN_DEBUG "parsing http, length %d:\n", len);
 #endif
-    j = strlen(con->buffer); //check if we already started to capture a host line
+    j = strlen(con->buffer); //check if we already started to capture a host line in a previous fragment
     for (i=0; i < len; i++){
         if (j>6 || !strncmp(&start[i], &host[j], min(len-i,6-j))){
             while (i < len && start[i] != '\r' && start[i] != '\0' && j < CON_BUF_SIZE-1){
-                con->buffer[j++] = start[i++];
+                con->buffer[j++] = start[i++];//copy the matching line to the buffer
             }
             con->buffer[j] = '\0';
             if (start[i] == '\r'){//read an entire host line
@@ -143,11 +162,11 @@ static __u8 parse_http(connection * con, struct tcphdr *tcp_header, unsigned cha
 
 /* check if a given connection is permitted in the connection table
  * and update the connection state if it changed.
- * Sets the action on the packet according to the decision.
+ * Set the action on the packet according to the decision and return the reason.
  * Note: this function assumes that tcp_header->ack is true.
  */
 reason_t check_conn_tab(rule_t *pkt, struct tcphdr *tcp_header, unsigned int hooknum, unsigned char *tail){
-    int reverse; //is this packet in the original direction or reversed?
+    int reverse; //is this packet in the direction of the initial packet or the reverse?
     connection *con = find_connection(pkt->src_ip, pkt->src_port, pkt->dst_ip, pkt->dst_port);
     if (NULL == con){ //non existing connection - drop the packet
         pkt->action = NF_DROP;
@@ -192,12 +211,12 @@ reason_t check_conn_tab(rule_t *pkt, struct tcphdr *tcp_header, unsigned int hoo
                 con->src_state = C_FIN_WAIT_1;
                 con->dst_state = C_CLOSE_WAIT;
             }
-        } else if (pkt->dst_port == htons(80)){
+        } else if (pkt->dst_port == htons(80)){ //scan http connections for blocked hosts
             pkt->action = parse_http(con, tcp_header, tail);
             if (pkt->action == NF_DROP){
                 return REASON_BLOCKED_HOST;
             }
-        } else if (pkt->dst_port == htons(21)){
+        } else if (pkt->dst_port == htons(21)){ //scan ftp connections for PORT commands
             parse_ftp(con, tcp_header, tail);
         }
 
@@ -268,6 +287,7 @@ void new_connection(rule_t pkt, unsigned int hooknum){
     list_add(&con->list, &conn_table);
 }
 
+/* clear the connection table and free it's memory*/
 static void clear_cons(void){
     connection *cur, *tmp;
     list_for_each_entry_safe(cur, tmp, &conn_table, list){
@@ -275,10 +295,14 @@ static void clear_cons(void){
     }
 }
 
+/* connection table char device functions and handlers */
+/*******************************************************/
+
 static int major_number;
 static struct device *dev = NULL;
-static struct list_head *cur_con; // used for iterating the list during read
+static struct list_head *cur_con; // used for iterating the table during read
 
+/* open the connection table char device */
 static int open_cons(struct inode *_inode, struct file *_file){
 #ifdef DEBUG
     printk(KERN_DEBUG "opened conn_tab\n");
@@ -287,6 +311,7 @@ static int open_cons(struct inode *_inode, struct file *_file){
     return 0;
 }
 
+/* reads the connection table, one connection at a time */
 static ssize_t read_cons(struct file *filp, char *buff, size_t length, loff_t *offp){
     unsigned long expiry = get_seconds() - TIMEOUT*10; //expire very stale connections when listing
     connection *tmp;
