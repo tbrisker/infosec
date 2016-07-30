@@ -15,8 +15,13 @@ static int host_len; // the length of the list
 
 /* check if a given host is on the blocked hosts list */
 int check_hosts(char *host){
-    char *tmp = strstr(host_list, host);
-    int len = strlen(host);
+    char *tmp;
+    int len = 0;
+    if (host_list == NULL || host == NULL){
+        return 0;
+    }
+    tmp = strstr(host_list, host);
+    len = strlen(host);
     while (tmp){
         //make sure we have a complete match
         if ((tmp==host_list || tmp[-1] == '\n') &&
