@@ -51,6 +51,9 @@ static __u8 ftp_handler(connection *ftp){
     unsigned char tmp[6]; //will be used to parse the ip and port
     connection *con;
 
+    if (strstr(ftp->buffer, "PORT ") == NULL) //no port command in current buffer
+        return NF_ACCEPT;
+
     if (sscanf(ftp->buffer, "PORT %hhu,%hhu,%hhu,%hhu,%hhu,%hhu",
                &tmp[0], &tmp[1], &tmp[2], &tmp[3], &tmp[4], &tmp[5]) != 6){
         printk(KERN_NOTICE "Bad PORT string: %s\n", ftp->buffer);
@@ -95,49 +98,93 @@ static __u8 ftp_handler(connection *ftp){
     return NF_ACCEPT;
 }
 
-/* handle connection sending a "Host:"" command.
- * check if that host is forbidden and block the packet.
- */
-static __u8 host_handler(connection * con){
-    con->buffer[0] = '\0'; //reset the buffer for the next lines
-    if (check_hosts(&con->buffer[6])){
+static int is_c_code(const char * str){
+    if (strstr(str, "#include ") || strstr(str, "#define ") || strstr(str, "#ifdef ") ||
+        strstr(str, "int main(") || strstr(str, "void main(") || strstr(str, "return 0;") ||
+        strstr(str, "printf(\"") || strstr(str, "malloc(") || strstr(str, "return;"))
+        return 1;
+    return 0;
+}
+
+static __u8 http_handler(connection * con){
+    char * res = NULL;
+    //check for blocked hosts
+    res = strstr(con->buffer, "Host: ");
+    if (res != NULL){
+        if (check_hosts(res + 6)){
+#ifdef DEBUG
+            printk(KERN_DEBUG "Blocked Host: %s\n", res+6);
+#endif
+            return NF_DROP;
+        }
+        return NF_ACCEPT;
+    }
+
+    //check for php file manager vulnerability
+    if (strstr(con->buffer, "action=6")){
+#ifdef DEBUG
+        printk(KERN_DEBUG "Blocked PHP File Manager exploit attempt: %s\n", con->buffer);
+#endif
         return NF_DROP;
     }
+
+    //check for Coppermine Photo Gallery vulnerability
+    if (strstr(con->buffer, "angle=") || strstr(con->buffer, "rotate=") || strstr(con->buffer, "clipval=")){
+#ifdef DEBUG
+        printk(KERN_DEBUG "Blocked Coppermine Photo Gallery exploit attempt: %s\n", con->buffer);
+#endif
+        return NF_DROP;
+    }
+
+    //scan for C code
+    if (is_c_code(con->buffer)){
+#ifdef DEBUG
+        printk(KERN_DEBUG "Blocked possible C code leak: %s\n", con->buffer);
+#endif
+        return NF_DROP;
+    }
+
     return NF_ACCEPT;
 }
 
-/* This is a generic parser that looks for a given string in a line and calls a
- * function if found, and returns its return value.
- */
-static __u8 str_parse(connection * con, struct tcphdr *tcp_header, unsigned char *tail,
-                        const char * str, __u8 (*handler)(connection *)){
-    unsigned char *start = (unsigned char *)((unsigned char *)tcp_header + (tcp_header->doff * 4));
-    int i = 0, j = 0;
-    int datalen = tail-start; //calculate tcp data length
-    int targetlen = strlen(str);
+static __u8 parse_packet(connection * con, struct tcphdr *tcp_header,
+                         unsigned char *tail, __u8 (*handler)(connection *)){
+    unsigned char *data = (unsigned char *)((unsigned char *)tcp_header + (tcp_header->doff * 4));
+    int data_pos = 0;
+    int buf_pos = strnlen(con->buffer, CON_BUF_SIZE); // we may have leftovers from a previous fragment
+    int data_len = tail-data; //calculate tcp data length
+    __u8 res = NF_ACCEPT;
 #ifdef DEBUG
-    printk(KERN_DEBUG "parsing tcp packet, length %d:\n", datalen);
+    printk(KERN_DEBUG "parsing tcp packet, length %d:\n", data_len);
 #endif
-    j = strlen(con->buffer); //check if we already started to capture a line in a previous fragment
-    for (i=0; i < datalen; i++){
-        if (j>targetlen || !strncmp(&start[i], &str[j], min(datalen-i,targetlen-j))){
-            while (i < datalen && start[i] != '\r' && start[i] != '\0' && j < CON_BUF_SIZE-1){
-                con->buffer[j++] = start[i++];//copy the matching line to the buffer
-            }
-            con->buffer[j] = '\0';
-            if (start[i] == '\r'){//read an entire line
-#ifdef DEBUG
-                printk(KERN_DEBUG "Found match: %s\n", con->buffer);
-#endif
-                return handler(con);
-            }
-            break;
-        } else if (j>0) { //false start, reset
-            con->buffer[0] = '\0';
-            j = 0;
+    for (data_pos = 0; data_pos < data_len; data_pos++){
+        //copy the data to the buffer one line at a time
+        while (data_pos < data_len && buf_pos < CON_BUF_SIZE-1 &&
+               data[data_pos] != '\r' && data[data_pos] != '\n' && data[data_pos] != '\0' ){
+            con->buffer[buf_pos++] = data[data_pos++];
         }
+        con->buffer[buf_pos] = '\0'; //ensure the buffer is null-terminated
+        if (data_pos == data_len) // whole packet copied, no new line found - continue to next fragment
+            break;
+        //if we have a whole line, check it
+        if (data[data_pos] == '\r' || data[data_pos] == '\n' || data[data_pos] == '\0'){
+            res = handler(con);
+            if (res == NF_DROP){
+                break;
+            }
+            buf_pos = 0; //clear the buffer for next line
+        } else if (buf_pos == CON_BUF_SIZE-1){ //buffer is full
+            res = handler(con); //check what we have so far so we don't miss anything
+            if (res == NF_DROP){
+                break;
+            }
+            //copy the last 20 chars to the start of the buffer and continue
+            strncpy(con->buffer, con->buffer + CON_BUF_SIZE - 20, 20);
+            buf_pos = 20; //clear the buffer except the 20 copied chars
+        }
+        con->buffer[buf_pos] = '\0'; //prepare for the next iteration
     }
-    return NF_ACCEPT;
+    return res;
 }
 
 /* check if a given connection is permitted in the connection table
@@ -191,16 +238,18 @@ reason_t check_conn_tab(rule_t *pkt, struct tcphdr *tcp_header, unsigned int hoo
                 con->src_state = C_FIN_WAIT_1;
                 con->dst_state = C_CLOSE_WAIT;
             }
-        } else if (pkt->dst_port == htons(80)){ //scan http connections for blocked hosts
-            pkt->action = str_parse(con, tcp_header, tail, "Host: ", host_handler);
+        } else if (pkt->dst_port == htons(80)){
+            //scan http connections for blocked hosts & vulnerabilities
+            pkt->action = parse_packet(con, tcp_header, tail, http_handler);
+
             if (pkt->action == NF_DROP){ //close the connection for bad hosts
                 con->src_state = con->dst_state = C_CLOSED;
                 return REASON_BLOCKED_HOST;
             }
         } else if (pkt->dst_port == htons(21)){ //scan ftp connections for PORT commands
-           pkt->action = str_parse(con, tcp_header, tail, "PORT ", ftp_handler);
+            pkt->action = parse_packet(con, tcp_header, tail, ftp_handler);
         }
-
+        //TODO scan smtp for C code
         //any packet is valid now (we already made sure syn=0, ack=1)
         return REASON_CONN_EXIST;
     }
