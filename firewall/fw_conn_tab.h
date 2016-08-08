@@ -19,7 +19,7 @@ typedef enum {
     C_FTP_DATA
 } conn_state;
 
-#define CON_BUF_SIZE 256 //according to RFC 1035, max hostname is 255 chars, + '\0'
+#define CON_BUF_SIZE 256 //use 256 bytes to provide a decent buffer but not too long
 
 /* struct representing a connection.
  * Note - this represents both directions as any connection is uniquely identified
