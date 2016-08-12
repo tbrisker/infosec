@@ -98,6 +98,7 @@ static __u8 ftp_handler(connection *ftp){
     return NF_ACCEPT;
 }
 
+/* check if a string contains C code using several common patterns */
 static int is_c_code(const char * str){
     if (strstr(str, "#include ") || strstr(str, "#define ") || strstr(str, "#ifdef ") ||
         strstr(str, "int main(") || strstr(str, "void main(") || strstr(str, "return 0;") ||
@@ -106,6 +107,12 @@ static int is_c_code(const char * str){
     return 0;
 }
 
+/* Check http packets for:
+ * Blocked hosts
+ * PHP File Manager vulnerability
+ * Coppermine Photo Gallery vulnerability
+ * C code leaks
+ */
 static __u8 http_handler(connection * con){
     char * res = NULL;
     //check for blocked hosts
@@ -147,6 +154,20 @@ static __u8 http_handler(connection * con){
     return NF_ACCEPT;
 }
 
+/* prevent SMTP packets from leaking C code */
+static __u8 smtp_handler(connection * con){
+    //scan for C code
+    if (is_c_code(con->buffer)){
+#ifdef DEBUG
+        printk(KERN_DEBUG "Blocked possible C code leak: %s\n", con->buffer);
+#endif
+        return NF_DROP;
+    }
+
+    return NF_ACCEPT;
+}
+
+/* read a packet line by line and check it is valid according to the handler function*/
 static __u8 parse_packet(connection * con, struct tcphdr *tcp_header,
                          unsigned char *tail, __u8 (*handler)(connection *)){
     unsigned char *data = (unsigned char *)((unsigned char *)tcp_header + (tcp_header->doff * 4));
@@ -238,18 +259,17 @@ reason_t check_conn_tab(rule_t *pkt, struct tcphdr *tcp_header, unsigned int hoo
                 con->src_state = C_FIN_WAIT_1;
                 con->dst_state = C_CLOSE_WAIT;
             }
-        } else if (pkt->dst_port == htons(80)){
-            //scan http connections for blocked hosts & vulnerabilities
+        } else if (pkt->dst_port == htons(80)){ //scan http connections for blocked hosts & vulnerabilities
             pkt->action = parse_packet(con, tcp_header, tail, http_handler);
-
-            if (pkt->action == NF_DROP){ //close the connection for bad hosts
-                con->src_state = con->dst_state = C_CLOSED;
-                return REASON_BLOCKED_HOST;
-            }
         } else if (pkt->dst_port == htons(21)){ //scan ftp connections for PORT commands
             pkt->action = parse_packet(con, tcp_header, tail, ftp_handler);
+        } else if (pkt->dst_port == htons(25)){ //scan smtp connections for C code leaks
+            pkt->action = parse_packet(con, tcp_header, tail, smtp_handler);
         }
-        //TODO scan smtp for C code
+        if (pkt->action == NF_DROP){ //close the connection for bad hosts
+            con->src_state = con->dst_state = C_CLOSED;
+            return REASON_BLOCKED_HOST;
+        }
         //any packet is valid now (we already made sure syn=0, ack=1)
         return REASON_CONN_EXIST;
     }
