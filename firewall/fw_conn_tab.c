@@ -107,6 +107,34 @@ static int is_c_code(const char * str){
     return 0;
 }
 
+/* check if a sting contains any of the vulnerable CPG strings with illegal values */
+static int check_cpg(const char * buf){
+    char * res = NULL;
+    int i;
+    res = strstr(buf, "angle=");
+    if (res){
+        for (i = 6; res[i] != '\0' && res[i] != '\r'; i++){
+            if (!isdigit(res[i]) && res[i] != '&')
+                return 1;
+        }
+    }
+    res = strstr(buf, "rotate=");
+    if (res){
+        for (i = 7; res[i] != '\0' && res[i] != '\r'; i++){
+            if (!isdigit(res[i]) && res[i] != '&')
+                return 1;
+        }
+    }
+    res = strstr(buf, "clipval=");
+    if (res){
+        for (i = 8; res[i] != '\0' && res[i] != '\r'; i++){
+            if (!isdigit(res[i]) && res[i] != '&' && res[i] != ',') //clipval can also contain ,
+                return 1;
+        }
+    }
+    return 0;
+}
+
 /* Check http packets for:
  * Blocked hosts
  * PHP File Manager vulnerability
@@ -119,35 +147,27 @@ static __u8 http_handler(connection * con){
     res = strstr(con->buffer, "Host: ");
     if (res != NULL){
         if (check_hosts(res + 6)){
-#ifdef DEBUG
-            printk(KERN_DEBUG "Blocked Host: %s\n", res+6);
-#endif
+            printk(KERN_NOTICE "Blocked Host: %s\n", res+6);
             return NF_DROP;
         }
         return NF_ACCEPT;
     }
 
     //check for php file manager vulnerability
-    if (strstr(con->buffer, "action=6")){
-#ifdef DEBUG
-        printk(KERN_DEBUG "Blocked PHP File Manager exploit attempt: %s\n", con->buffer);
-#endif
+    if (strstr(con->buffer, "index.php?") && strstr(con->buffer, "action=6") ){
+        printk(KERN_NOTICE "Blocked PHP File Manager exploit attempt: %s\n", con->buffer);
         return NF_DROP;
     }
 
     //check for Coppermine Photo Gallery vulnerability
-    if (strstr(con->buffer, "angle=") || strstr(con->buffer, "rotate=") || strstr(con->buffer, "clipval=")){
-#ifdef DEBUG
-        printk(KERN_DEBUG "Blocked Coppermine Photo Gallery exploit attempt: %s\n", con->buffer);
-#endif
+    if (check_cpg(con->buffer)){
+        printk(KERN_NOTICE "Blocked Coppermine Photo Gallery exploit attempt: %s\n", con->buffer);
         return NF_DROP;
     }
 
     //scan for C code
     if (is_c_code(con->buffer)){
-#ifdef DEBUG
-        printk(KERN_DEBUG "Blocked possible C code leak: %s\n", con->buffer);
-#endif
+        printk(KERN_NOTICE "Blocked possible C code leak: %s\n", con->buffer);
         return NF_DROP;
     }
 
@@ -158,9 +178,7 @@ static __u8 http_handler(connection * con){
 static __u8 smtp_handler(connection * con){
     //scan for C code
     if (is_c_code(con->buffer)){
-#ifdef DEBUG
-        printk(KERN_DEBUG "Blocked possible C code leak: %s\n", con->buffer);
-#endif
+        printk(KERN_NOTICE "Blocked possible C code leak: %s\n", con->buffer);
         return NF_DROP;
     }
 

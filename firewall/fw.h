@@ -12,6 +12,7 @@
 #include <linux/udp.h>
 #include <linux/list.h>
 #include <linux/time.h>
+#include <linux/ctype.h>
 //include all our modules
 #include "fw_filter.h"
 #include "fw_stats.h"
