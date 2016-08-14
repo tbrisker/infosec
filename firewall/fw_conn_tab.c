@@ -113,22 +113,22 @@ static int check_cpg(const char * buf){
     int i;
     res = strstr(buf, "angle=");
     if (res){
-        for (i = 6; res[i] != '\0' && res[i] != '\r'; i++){
-            if (!isdigit(res[i]) && res[i] != '&')
+        for (i = 6; res[i] != '\0' && res[i] != '\r' && res[i] != '&'; i++){
+            if (!isdigit(res[i]))
                 return 1;
         }
     }
     res = strstr(buf, "rotate=");
     if (res){
-        for (i = 7; res[i] != '\0' && res[i] != '\r'; i++){
-            if (!isdigit(res[i]) && res[i] != '&')
+        for (i = 7; res[i] != '\0' && res[i] != '\r' && res[i] != '&'; i++){
+            if (!isdigit(res[i]))
                 return 1;
         }
     }
     res = strstr(buf, "clipval=");
     if (res){
-        for (i = 8; res[i] != '\0' && res[i] != '\r'; i++){
-            if (!isdigit(res[i]) && res[i] != '&' && res[i] != ',') //clipval can also contain ,
+        for (i = 8; res[i] != '\0' && res[i] != '\r' && res[i] != '&'; i++){
+            if (!isdigit(res[i]) && res[i] != ',') //clipval can also contain ,
                 return 1;
         }
     }
